@@ -1,0 +1,52 @@
+{
+  "_type": "Collection",
+  "total": 4,
+  "count": 4,
+  "pageSize": 30,
+  "offset": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Version",
+        "id": 100,
+        "name": "Sprint Backlog",
+        "status": "open",
+        "_links": {
+          "self": { "href": "/api/v3/versions/100", "title": "Sprint Backlog" },
+          "definingProject": { "href": "/api/v3/projects/3", "title": "Demo Project" }
+        }
+      },
+      {
+        "_type": "Version",
+        "id": 101,
+        "name": "v1.0",
+        "status": "open",
+        "_links": {
+          "self": { "href": "/api/v3/versions/101", "title": "v1.0" },
+          "definingProject": { "href": "/api/v3/projects/3", "title": "Demo Project" }
+        }
+      },
+      {
+        "_type": "Version",
+        "id": 200,
+        "name": "R1",
+        "status": "open",
+        "_links": {
+          "self": { "href": "/api/v3/versions/200", "title": "R1" },
+          "definingProject": { "href": "/api/v3/projects/7", "title": "Platform" }
+        }
+      },
+      {
+        "_type": "Version",
+        "id": 201,
+        "name": "R2",
+        "status": "open",
+        "_links": {
+          "self": { "href": "/api/v3/versions/201", "title": "R2" },
+          "definingProject": { "href": "/api/v3/projects/7", "title": "Platform" }
+        }
+      }
+    ]
+  },
+  "_links": { "self": { "href": "/api/v3/versions" } }
+}

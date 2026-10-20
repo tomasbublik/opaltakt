@@ -1,0 +1,25 @@
+{
+  "name": "@osp/tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "dependencies": {
+    "@osp/contracts": "workspace:*",
+    "@osp/db": "workspace:*",
+    "@osp/fixtures": "workspace:*",
+    "@osp/op-client": "workspace:*",
+    "@osp/sync": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.2"
+  }
+}

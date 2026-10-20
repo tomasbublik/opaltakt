@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mock OP — scenario control</title>
+  <link rel="stylesheet" href="/__mock/ui/panel.css">
+</head>
+<body>
+  <header>
+    <h1>Mock OpenProject — scenario control</h1>
+    <p class="hint">
+      Operator tooling on <code>/__mock/*</code>. The Sprint Planner never calls this —
+      it stays GET-only on <code>/api/v3/*</code>.
+    </p>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <label for="scenario-select">Scenario</label>
+      <select id="scenario-select"></select>
+      <button id="btn-load" class="primary">Load</button>
+      <button id="btn-advance">Advance day</button>
+      <button id="btn-urgent">Inject urgent</button>
+      <button id="btn-reset" class="danger">Reset</button>
+      <button id="btn-refresh">Refresh</button>
+    </div>
+    <p id="scenario-description" class="description"></p>
+  </section>
+
+  <fieldset class="card" id="helper-fieldset">
+    <legend>Sprint Planner helper (runs on “Advance day”)</legend>
+    <div class="row">
+      <label for="app-url">App URL</label>
+      <input id="app-url" type="text" value="http://127.0.0.1:3001" spellcheck="false">
+      <label class="check"><input type="checkbox" id="helper-sync"> run sync</label>
+      <label class="check"><input type="checkbox" id="helper-snapshot"> write snapshot</label>
+    </div>
+    <div id="helper-results" aria-live="polite"></div>
+  </fieldset>
+
+  <section class="card">
+    <h2>Current state</h2>
+    <p id="state-meta" class="meta">loading…</p>
+    <p id="message" class="message" aria-live="polite"></p>
+    <div class="table-wrap">
+      <table id="wp-table">
+        <thead>
+          <tr>
+            <th>id</th><th>subject</th><th>status</th><th>assignee</th><th>accountable</th>
+            <th class="num">est</th><th class="num">rem</th><th class="num">spent</th>
+            <th>version</th><th>updatedAt</th>
+          </tr>
+        </thead>
+        <tbody id="wp-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="/__mock/ui/panel.js"></script>
+</body>
+</html>

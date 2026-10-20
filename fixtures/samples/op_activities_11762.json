@@ -1,0 +1,282 @@
+{
+  "__fixture_note": "Representative GET /api/v3/work_packages/11762/activities response. The structure mirrors OpenProject v3 verbatim ('details' and '_links' are the parsing targets); all names, subjects and field values are invented. Note: _links.user carries NO 'title' — the name must be resolved via GET /api/v3/users/:id.",
+  "_type": "Collection",
+  "total": 15,
+  "count": 15,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Activity",
+        "id": 162436,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "Type set to Bug", "html": "<strong>Type</strong> set to <i>Bug</i>" },
+          { "format": "custom", "raw": "Project set to Demo Project", "html": "<strong>Project</strong> set to <i>Demo Project</i>" },
+          { "format": "custom", "raw": "Subject set to Example ticket: field mapping in reversal message", "html": "<strong>Subject</strong> set to <i>Example ticket: field mapping in reversal message</i>" },
+          { "format": "custom", "raw": "Description set (/journals/162436/diff/description)", "html": "<strong>Description</strong> set (<a class=\"diff-details\" href=\"/journals/162436/diff/description\">Details</a>)" },
+          { "format": "custom", "raw": "Status set to new", "html": "<strong>Status</strong> set to <i>new</i>" },
+          { "format": "custom", "raw": "Assignee set to Cameron Dalby", "html": "<strong>Assignee</strong> set to <i>Cameron Dalby</i>" },
+          { "format": "custom", "raw": "Priority set to Normal", "html": "<strong>Priority</strong> set to <i>Normal</i>" },
+          { "format": "custom", "raw": "Author set to Arend Kuiper", "html": "<strong>Author</strong> set to <i>Arend Kuiper</i>" },
+          { "format": "custom", "raw": "Start date set to 2026-07-07", "html": "<strong>Start date</strong> set to <i>2026-07-07</i>" },
+          { "format": "custom", "raw": "Accountable set to Jan Bily", "html": "<strong>Accountable</strong> set to <i>Jan Bily</i>" },
+          { "format": "custom", "raw": "Scheduling mode set to Manual", "html": "<strong>Scheduling mode</strong> set to Manual" },
+          { "format": "custom", "raw": "Working days set to working days only", "html": "<strong>Working days</strong> set to <i>working days only</i>" },
+          { "format": "custom", "raw": "Risk Level set to TBD", "html": "<strong>Risk Level</strong> set to <i>TBD</i>" },
+          { "format": "custom", "raw": "Component set to Core", "html": "<strong>Component</strong> set to <i>Core</i>" },
+          { "format": "custom", "raw": "Found In Release set to 3.5.040", "html": "<strong>Found In Release</strong> set to <i>3.5.040</i>" },
+          { "format": "custom", "raw": "Configuration change required set to No", "html": "<strong>Configuration change required</strong> set to <i>No</i>" }
+        ],
+        "version": 1,
+        "internal": false,
+        "createdAt": "2026-07-07T03:41:21.757Z",
+        "updatedAt": "2026-07-07T03:43:56.811Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162436" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/184" }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 162440,
+        "comment": { "format": "markdown", "raw": "[COMMENT BODY REMOVED FOR FIXTURE]", "html": "<p>[COMMENT BODY REMOVED FOR FIXTURE]</p>" },
+        "details": [
+          { "format": "custom", "raw": "Version set to 3.5.038", "html": "<strong>Version</strong> set to <i>3.5.038</i>" },
+          { "format": "custom", "raw": "Risk Level changed from TBD to None", "html": "<strong>Risk Level</strong> changed from <i>TBD</i> to <i>None</i>" }
+        ],
+        "version": 2,
+        "internal": false,
+        "createdAt": "2026-07-07T06:33:50.390Z",
+        "updatedAt": "2026-07-07T06:34:10.868Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162440" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/3" }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 162446,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "Found In Release changed from 3.5.040 to 3.5.038", "html": "<strong>Found In Release</strong> changed from <i>3.5.040</i> to <i>3.5.038</i>" }
+        ],
+        "version": 3,
+        "internal": false,
+        "createdAt": "2026-07-07T07:07:32.887Z",
+        "updatedAt": "2026-07-07T07:07:32.887Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162446" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/5" }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 162531,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "% Complete set to 0%", "html": "<strong>% Complete</strong> set to <i>0%</i>" },
+          { "format": "custom", "raw": "Work set to 12h", "html": "<strong>Work</strong> set to <i>12h</i>" },
+          { "format": "custom", "raw": "Remaining work set to 12h", "html": "<strong>Remaining work</strong> set to <i>12h</i>" }
+        ],
+        "version": 4,
+        "internal": false,
+        "createdAt": "2026-07-08T07:23:39.337Z",
+        "updatedAt": "2026-07-08T07:25:03.588Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162531" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/261" }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 162615,
+        "comment": { "format": "markdown", "raw": "[COMMENT BODY REMOVED FOR FIXTURE - original was a very large code block]", "html": "<p>[COMMENT BODY REMOVED FOR FIXTURE]</p>" },
+        "details": [],
+        "version": 5,
+        "internal": false,
+        "createdAt": "2026-07-09T03:28:09.374Z",
+        "updatedAt": "2026-07-09T03:28:09.374Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162615" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/184" }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 162672,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "Configuration change required changed from No to Yes", "html": "<strong>Configuration change required</strong> changed from <i>No</i> to <i>Yes</i>" }
+        ],
+        "version": 6,
+        "internal": false,
+        "createdAt": "2026-07-09T14:37:55.857Z",
+        "updatedAt": "2026-07-09T14:37:55.857Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162672" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/261" }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 162721,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "Status changed from new to in progress", "html": "<strong>Status</strong> changed from <i>new</i> to <i>in progress</i>" }
+        ],
+        "version": 7,
+        "internal": false,
+        "createdAt": "2026-07-10T07:59:56.586Z",
+        "updatedAt": "2026-07-10T07:59:56.586Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162721" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/261" }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 162744,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "Assignee changed from Cameron Dalby to Tobias Bubenik", "html": "<strong>Assignee</strong> changed from <i>Cameron Dalby</i> to <i>Tobias Bubenik</i>" }
+        ],
+        "version": 8,
+        "internal": false,
+        "createdAt": "2026-07-10T10:53:07.410Z",
+        "updatedAt": "2026-07-10T10:53:07.410Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162744" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/3" }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 162750,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "Status changed from in progress to merge pending", "html": "<strong>Status</strong> changed from <i>in progress</i> to <i>merge pending</i>" }
+        ],
+        "version": 9,
+        "internal": false,
+        "createdAt": "2026-07-10T11:09:05.135Z",
+        "updatedAt": "2026-07-10T11:09:05.135Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162750" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/261" }
+        }
+      },
+      {
+        "_type": "Activity",
+        "id": 162778,
+        "comment": { "format": "markdown", "raw": "", "html": "" },
+        "details": [
+          { "format": "custom", "raw": "Status changed from merge pending to developed", "html": "<strong>Status</strong> changed from <i>merge pending</i> to <i>developed</i>" },
+          { "format": "custom", "raw": "Assignee changed from Tobias Bubenik to Daniel Brabec", "html": "<strong>Assignee</strong> changed from <i>Tobias Bubenik</i> to <i>Daniel Brabec</i>" }
+        ],
+        "version": 10,
+        "internal": false,
+        "createdAt": "2026-07-10T18:38:02.462Z",
+        "updatedAt": "2026-07-10T18:39:41.584Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162778" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/261" }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 162779,
+        "comment": { "format": "markdown", "raw": "[COMMENT BODY REMOVED FOR FIXTURE]", "html": "<p>[COMMENT BODY REMOVED FOR FIXTURE]</p>" },
+        "details": [],
+        "version": 11,
+        "internal": false,
+        "createdAt": "2026-07-10T21:32:41.281Z",
+        "updatedAt": "2026-07-10T21:32:41.281Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162779" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/184" }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 162940,
+        "comment": { "format": "markdown", "raw": "[COMMENT BODY REMOVED FOR FIXTURE]", "html": "<p>[COMMENT BODY REMOVED FOR FIXTURE]</p>" },
+        "details": [
+          { "format": "custom", "raw": "Status changed from developed to in progress", "html": "<strong>Status</strong> changed from <i>developed</i> to <i>in progress</i>" },
+          { "format": "custom", "raw": "Assignee changed from Daniel Brabec to Tobias Bubenik", "html": "<strong>Assignee</strong> changed from <i>Daniel Brabec</i> to <i>Tobias Bubenik</i>" }
+        ],
+        "version": 12,
+        "internal": false,
+        "createdAt": "2026-07-14T08:28:29.445Z",
+        "updatedAt": "2026-07-14T08:28:41.060Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162940" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/63" }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 162950,
+        "comment": { "format": "markdown", "raw": "[COMMENT BODY REMOVED FOR FIXTURE]", "html": "<p>[COMMENT BODY REMOVED FOR FIXTURE]</p>" },
+        "details": [],
+        "version": 13,
+        "internal": false,
+        "createdAt": "2026-07-14T09:14:31.102Z",
+        "updatedAt": "2026-07-14T09:14:31.102Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162950" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/261" }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 162991,
+        "comment": { "format": "markdown", "raw": "[COMMENT BODY REMOVED FOR FIXTURE - contained an inline image attachment]", "html": "<p>[COMMENT BODY REMOVED FOR FIXTURE]</p>" },
+        "details": [
+          { "format": "custom", "raw": "Status changed from in progress to developed", "html": "<strong>Status</strong> changed from <i>in progress</i> to <i>developed</i>" },
+          { "format": "custom", "raw": "Assignee changed from Tobias Bubenik to Daniel Brabec", "html": "<strong>Assignee</strong> changed from <i>Tobias Bubenik</i> to <i>Daniel Brabec</i>" }
+        ],
+        "version": 14,
+        "internal": false,
+        "createdAt": "2026-07-14T22:03:04.451Z",
+        "updatedAt": "2026-07-14T22:03:19.384Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/162991" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/184" }
+        }
+      },
+      {
+        "_type": "Activity::Comment",
+        "id": 163027,
+        "comment": { "format": "markdown", "raw": "[COMMENT BODY REMOVED FOR FIXTURE]", "html": "<p>[COMMENT BODY REMOVED FOR FIXTURE]</p>" },
+        "details": [
+          { "format": "custom", "raw": "Status changed from developed to tested", "html": "<strong>Status</strong> changed from <i>developed</i> to <i>tested</i>" },
+          { "format": "custom", "raw": "Assignee changed from Daniel Brabec to Jan Bily", "html": "<strong>Assignee</strong> changed from <i>Daniel Brabec</i> to <i>Jan Bily</i>" }
+        ],
+        "version": 15,
+        "internal": false,
+        "createdAt": "2026-07-15T08:47:22.623Z",
+        "updatedAt": "2026-07-15T08:49:04.328Z",
+        "_links": {
+          "self": { "href": "/api/v3/activities/163027" },
+          "workPackage": { "href": "/api/v3/work_packages/11762", "title": "Example ticket: field mapping in reversal message" },
+          "user": { "href": "/api/v3/users/63" }
+        }
+      }
+    ]
+  },
+  "_links": { "self": { "href": "/api/v3/work_packages/11762/activities" } }
+}

@@ -1,0 +1,28 @@
+{
+  "_type": "Collection",
+  "total": 2,
+  "count": 2,
+  "pageSize": 30,
+  "offset": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "Project",
+        "id": 3,
+        "identifier": "demo-project",
+        "name": "Demo Project",
+        "active": true,
+        "_links": { "self": { "href": "/api/v3/projects/3", "title": "Demo Project" } }
+      },
+      {
+        "_type": "Project",
+        "id": 7,
+        "identifier": "platform",
+        "name": "Platform",
+        "active": true,
+        "_links": { "self": { "href": "/api/v3/projects/7", "title": "Platform" } }
+      }
+    ]
+  },
+  "_links": { "self": { "href": "/api/v3/projects" } }
+}

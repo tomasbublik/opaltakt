@@ -1,0 +1,22 @@
+{
+  "_type": "Collection",
+  "total": 10,
+  "count": 10,
+  "pageSize": 30,
+  "offset": 1,
+  "_embedded": {
+    "elements": [
+      { "_type": "Status", "id": 1, "name": "New", "isClosed": false, "color": "#1098AD", "position": 1 },
+      { "_type": "Status", "id": 2, "name": "Confirmed", "isClosed": false, "color": "#4263EB", "position": 2 },
+      { "_type": "Status", "id": 7, "name": "In progress", "isClosed": false, "color": "#F59F00", "position": 3 },
+      { "_type": "Status", "id": 3, "name": "Developed", "isClosed": false, "color": "#7048E8", "position": 4 },
+      { "_type": "Status", "id": 4, "name": "Merge pending", "isClosed": false, "color": "#0CA678", "position": 5 },
+      { "_type": "Status", "id": 5, "name": "Tested", "isClosed": false, "color": "#12B886", "position": 6 },
+      { "_type": "Status", "id": 6, "name": "On hold", "isClosed": false, "color": "#868E96", "position": 7 },
+      { "_type": "Status", "id": 14, "name": "Rejected", "isClosed": true, "color": "#E03131", "position": 8 },
+      { "_type": "Status", "id": 15, "name": "Resolved", "isClosed": true, "color": "#37B24D", "position": 9 },
+      { "_type": "Status", "id": 12, "name": "Closed", "isClosed": true, "color": "#2F9E44", "position": 10 }
+    ]
+  },
+  "_links": { "self": { "href": "/api/v3/statuses" } }
+}

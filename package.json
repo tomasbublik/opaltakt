@@ -1,0 +1,25 @@
+{
+  "name": "opaltakt",
+  "version": "0.39.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --workspace-concurrency=1 --if-present run test",
+    "test:e2e": "pnpm --filter @osp/tests run test:e2e",
+    "lint": "pnpm -r --if-present run lint",
+    "dev": "set -a; [ -f .env.local ] && . ./.env.local; set +a; : \"${DATABASE_URL:?DATABASE_URL is not set - put it in .env.local (see .env.example)}\" \"${PORT:?PORT is not set - put it in .env.local}\"; pnpm -r --parallel --if-present run dev",
+    "mock:op": "pnpm --filter @osp/fixtures run start",
+    "mock:op2": "pnpm --filter @osp/fixtures run start:second",
+    "diag": "pnpm --filter @osp/api run diag"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

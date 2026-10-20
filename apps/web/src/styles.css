@@ -1,0 +1,1141 @@
+:root {
+  /* ── Neutral slate scale ─────────────────────────────────────────────── */
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-2: #334155;
+  --muted: #64748b; /* 4.8:1 on white — AA for body text */
+
+  /* ── Spacing / radius / elevation scale ──────────────────────────────── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.18);
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --header-h: 52px;
+
+  /**
+   * Brand tokens. The single restrained accent is a calm indigo
+   * (--brand-blue-700, 8.6:1 on white). The orange tokens are NOT chrome
+   * colours any more — --brand-orange-600 is kept only because the capacity
+   * bar's logged/overshoot markers read it (docs/CAPACITY_BAR_RULES.md).
+   */
+  --brand-blue-900: #1e1b4b;
+  --brand-blue-700: #4338ca;
+  --brand-blue-500: #6366f1;
+  --brand-blue-300: #a5b4fc;
+  --brand-orange-500: #fb923c;
+  --brand-orange-600: #f97316; /* capacity bar logged marker — do not repurpose */
+
+  /**
+   * Chrome tokens (header, buttons, links, non-capacity status chips).
+   * `--danger` stays a plain, unambiguous red so a destructive action never
+   * reads as brand (SPEC_11 §3).
+   */
+  --primary: var(--brand-blue-700);
+  --primary-hover: #3730a3;
+  --primary-fg: #ffffff;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --ok: #16a34a;
+  --warn: #d97706;
+  --warn-bg: #fffbeb;
+  --warn-text: #92400e; /* 7:1 on --warn-bg — AA text colour for amber surfaces */
+  --accent-bg: color-mix(in srgb, var(--brand-blue-700) 7%, white);
+  --accent-border: color-mix(in srgb, var(--brand-blue-700) 22%, white);
+  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px var(--brand-blue-500);
+
+  /**
+   * Capacity-panel SEMANTIC colors (SPEC_05/SPEC_09) — deliberately NOT wired
+   * to the brand tokens above, and kept at their pre-Increment-11 exact
+   * values. `.bar-blue` / `.badge.removed` / `.card-removed` all mean
+   * specifically "removed from scope" — that must stay visually distinct from
+   * a brand-primary button/link, not just coincidentally different (SPEC_11
+   * §3 hard constraint: a user must never confuse the two).
+   */
+  --capacity-blue: #2563eb;
+  --capacity-blue-bg: #eff6ff;
+  --capacity-blue-border: #bfdbfe;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.01em;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* One consistent, clearly visible keyboard focus treatment everywhere. */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* SPEC_11 §3: links follow the brand primary, not the browser default blue. */
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────
+   Two rows: [brand · connection · status/sync · account] over [tabs].
+   Root cause of the old overflow: ONE non-wrapping flex row held brand +
+   connection + 11 tabs (nav, nowrap buttons) + the sync cluster (nowrap),
+   so at ≤1440px the sum of intrinsic widths exceeded the viewport and the
+   sync cluster ran off the right edge. Now: tabs own their own row
+   (scrolls horizontally only as a last resort below ~900px), and the top
+   row may shrink (status text ellipsises) and wraps if it must. */
+.app-header {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0 var(--sp-5);
+  max-width: 100vw;
+}
+
+.app-header-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: var(--header-h);
+  padding: var(--sp-2) 0;
+}
+
+.app-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.app-header .brand-mark {
+  flex: none;
+  display: block;
+}
+
+.app-header h1 {
+  font-size: 16px;
+  font-weight: 650;
+  margin: 0;
+  white-space: nowrap;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.app-header-spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Reserved for the signed-in user cluster (name · role badge · Sign out). */
+.app-header-account {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.app-header-account:empty {
+  display: none;
+}
+
+.app-header .sync-status {
+  color: var(--muted);
+}
+
+.nav {
+  display: flex;
+  gap: 2px;
+  margin: 0 calc(-1 * var(--sp-2));
+  padding: 0 var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav button {
+  flex: none;
+  white-space: nowrap;
+  position: relative;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 9px 12px 10px;
+  color: var(--muted);
+  font-weight: 500;
+  transition: color 0.12s, background-color 0.12s;
+}
+
+.nav button:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.nav button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nav button[aria-current="true"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The "you are here" mark: a 2px accent underline sitting on the header rule. */
+.nav button[aria-current="true"]::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+.nav button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--brand-blue-500);
+}
+
+/* Refresh-all result panel — its own full-width row under the tabs. */
+.sync-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  padding: var(--sp-2) 0 var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+.sync-summary-label {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* Connection status indicator (SPEC_02 §6) */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+  background: var(--border);
+}
+
+.status-dot.green {
+  background: var(--ok);
+}
+
+.status-dot.orange {
+  background: var(--warn);
+}
+
+.status-dot.red {
+  background: var(--danger);
+}
+
+.status-dot.neutral {
+  background: #94a3b8;
+}
+
+.conn-status {
+  position: relative;
+}
+
+.conn-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  max-width: 220px;
+}
+
+.conn-status-btn:hover {
+  background: var(--bg);
+  border-color: var(--border-strong);
+}
+
+.conn-status-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 360px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-3);
+  box-shadow: var(--shadow-lg);
+}
+
+.conn-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.conn-row .status-dot {
+  margin-top: 3px;
+}
+
+.conn-row-info {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.conn-row-title {
+  overflow-wrap: anywhere;
+}
+
+.conn-row-title .badge {
+  margin-left: 6px;
+}
+
+.conn-row-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.conn-popover-footer {
+  padding-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.server-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.server-row:last-child {
+  border-bottom: none;
+}
+
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+/* The status sentence is the only elastic part of the cluster: it ellipsises
+   (full text stays in the DOM / title) so the buttons never get pushed off. */
+.sync-status .sync-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sync-status .btn {
+  flex: none;
+}
+
+.content {
+  padding: var(--sp-5) var(--sp-5) 48px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4) 20px;
+  margin-bottom: var(--sp-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel h2 {
+  margin: 0 0 var(--sp-3);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.btn {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.12s, border-color 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.secondary {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.btn.secondary:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--muted);
+}
+
+.btn.danger {
+  background: var(--panel);
+  color: var(--danger);
+  border-color: var(--border-strong);
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.btn.small {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.field input,
+.field select {
+  font: inherit;
+  padding: 7px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.field input:hover,
+.field select:hover {
+  border-color: var(--muted);
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.grid th,
+table.grid td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+table.grid th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg);
+  border-bottom-color: var(--border-strong);
+}
+
+table.grid tbody tr:hover td {
+  background: color-mix(in srgb, var(--bg) 70%, white);
+}
+
+table.grid tr.row-selected td {
+  background: var(--accent-bg);
+}
+
+button.th-sort {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  user-select: none;
+}
+button.th-sort:hover {
+  color: var(--text);
+}
+button.th-sort:focus-visible {
+  outline: 2px solid var(--brand-blue-500);
+  outline-offset: 2px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.badge.closed {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.badge.open {
+  background: var(--accent-bg);
+  color: var(--primary);
+  border-color: var(--accent-border);
+}
+
+/* SPEC_05 §5: scope-churn badges on a sprint card — added mid-sprint (amber,
+   matches the "red" allocation meaning: new commitment) vs. removed-but-kept-
+   for-history (blue, matches the capacity bar's "cut" color). Pinned to the
+   dedicated --capacity-blue-* tokens (SPEC_11 §3), NOT --primary/--accent-bg,
+   so it keeps meaning exactly what .bar-blue means regardless of brand chrome. */
+.badge.added {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-color: #fde68a;
+}
+
+.badge.removed {
+  background: var(--capacity-blue-bg);
+  color: var(--capacity-blue);
+  border-color: var(--capacity-blue-border);
+}
+
+
+.msg {
+  padding: 14px 16px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.msg.error {
+  background: var(--danger-bg);
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.msg.warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border: 1px solid #fde68a;
+}
+
+.msg.ok {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.dropzone {
+  min-height: 200px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  background: var(--bg);
+}
+
+.dropzone.over {
+  border-color: var(--primary);
+  background: var(--accent-bg);
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card .card-title {
+  font-weight: 600;
+}
+
+/* SPEC_05 §1/§9.1: a removed_mid_sprint item with logged time — kept visible
+   for history, greyed out, blue-bordered ("no longer committed, but here's
+   what happened"). Not draggable, no remove button (handled via `disabled`).
+   Uses --capacity-blue (SPEC_11 §3), not --primary — same reasoning as
+   .badge.removed above. */
+.card-removed {
+  opacity: 0.65;
+  border: 2px solid var(--capacity-blue);
+  background: var(--capacity-blue-bg);
+}
+
+.card-removed .card-title,
+.card-removed .card-meta {
+  color: var(--muted);
+}
+
+/* Increment 28 (docs/INCREMENT_28_CONTRACTS.md §2d): transient highlight for
+   a WpCard targeted by a "jump to ticket" control in the double-counting
+   warning. Deliberately NOT a bar colour (CAPACITY_BAR_RULES.md §7 is
+   untouched by this increment) — a plain, brand-neutral outline that fades
+   back to nothing once Board's scrollToTicket() clears it a few seconds later. */
+.card-highlight {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  transition: outline-color 0.3s ease;
+}
+
+/* Increment 28: an inline, button-styled-as-link control (the double-counting
+   warning's ticket ids) — same visual language as an anchor, but a real
+   <button> so it never navigates/needs an href. */
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* SPEC_07 §1: a backlog row sourced from a disconnected/unreachable server —
+   stays fully usable (add to sprint, override), just visibly not-live data.
+   Same "dimmed, muted" language as .card-removed above, adapted for a row. */
+.row-stale {
+  opacity: 0.6;
+}
+
+.row-stale td {
+  color: var(--muted);
+}
+
+/* SPEC_11 §3/#6: Developed/Tested/Resolved tickets recede — reused on both
+   the backlog table row and the sprint board card. */
+.status-dimmed {
+  opacity: 0.55;
+}
+
+.card .card-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.capacity-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* SPEC_14 §2 consequence #1: "capacity = Developers only" — a tester/
+   customer/other line still appears (name + hours visible) but reads as
+   GREY, not a plannable roster row. */
+.capacity-line-nondev {
+  opacity: 0.6;
+}
+
+.capacity-line-nondev .bar-green {
+  background: var(--muted);
+}
+
+/* Settings → People (SPEC_14 §2): "unset" must never read like a plain,
+   silently-defaulted value — a distinct highlight, not just text. */
+.role-unset {
+  background: var(--warn-bg);
+  border-color: #fde68a !important;
+  color: var(--warn-text);
+  font-weight: 600;
+}
+
+.row-unset-role {
+  background: var(--warn-bg);
+}
+
+/* Closure statistics (SPEC_14 §3): a ticket flagged anomaly !== null must
+   never read as just another list row. */
+.anomaly-item {
+  background: var(--warn-bg);
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 6px 8px;
+  list-style: none;
+}
+
+/**
+ * Stacked capacity bar (SPEC_05 §2/§5): green (baseline still in scope), blue
+ * (baseline cut — a bordered/hatched "used to be green" marker, positioned
+ * right where green left off) and red (added, on top) laid out left-to-right
+ * as a flex row. All three are sized relative to `available_hours`; when a
+ * sprint has no baseline yet, only a plain green segment renders (unchanged
+ * from pre-Increment-5 behaviour). `.bar-over` flags aggregate overload.
+ */
+.bar {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+}
+
+/* SPEC_13 §4: `available_hours` reference marker — segments themselves are
+   sized off real allocated hours (never off this), so at `available = 0`
+   there's simply no marker, not a collapsed/empty bar. */
+.bar-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.bar-over {
+  outline: 2px solid var(--danger);
+  outline-offset: 1px;
+}
+
+.bar-seg {
+  display: block;
+  height: 100%;
+  flex: 0 0 auto;
+}
+
+.bar-green {
+  background: var(--ok);
+}
+
+.bar-red {
+  background: var(--danger);
+}
+
+/* SPEC_11 §3: pinned to --capacity-blue (NOT --primary) so this "removed from
+   scope" segment can never drift to match a rebranded primary button/link. */
+.bar-blue {
+  background: repeating-linear-gradient(45deg, var(--capacity-blue) 0, var(--capacity-blue) 3px, #ffffff 3px, #ffffff 6px);
+  border-top: 1.5px solid var(--capacity-blue);
+  border-bottom: 1.5px solid var(--capacity-blue);
+}
+
+/**
+ * SPEC_09 §3/§4/§8: redistribution segment, layered inside the baseline —
+ * done-or-reassigned baseline work at the ORIGINAL owner (sender) and
+ * received-from-someone-else's-baseline work at the new assignee (receiver).
+ * Same neutral grey either way; the per-segment `title` disambiguates.
+ */
+.bar-grey {
+  background: var(--muted);
+}
+
+/**
+ * SPEC_17 §1/§7 decision #2 (Increment 17, supersedes Increment 15's
+ * single-hatch model) — the developer-capacity-bar segment kinds needed
+ * THREE visually-distinct hatch treatments (rows b/c/f), on top of the two
+ * plain solids already covered above:
+ *   - `.bar-green` (row a, `baseline_worked`) — unchanged, reused as-is.
+ *   - `.bar-blue`  (rows d/g, `removed`/`churned`) — unchanged, reused as-is
+ *     ("gone, blue" for both — same visual, different roll-up contribution).
+ *   - `.bar-red`   (row e, `acquired`) — unchanged, reused as-is.
+ *   - `.bar-handoff` (row c). Blue hatch. SPEC_17 explicitly changes
+ *     this from Increment 15's plain grey `redistributed`/`.bar-grey` to
+ *     blue-hatched — a real visual change, not a rename: "gone" (blue) is
+ *     now the unifying colour for c/d/g, hatched (c, work is still tracked
+ *     elsewhere/being finished by the receiver) vs solid (d/g, plainly gone).
+ *   - `.bar-idle` (row f) — RECOLOURED from grey to amber/orange (`--warn`).
+ *     Row f ("mimo baseline, D nelogoval, drží") is purely informational —
+ *     not baseline, not counted toward Planned. `--warn` (amber, already
+ *     used for scope-churn "added mid-sprint" badges) keeps the mid-sprint,
+ *     not-baseline connotation distinct from `--brand-orange-600`'s
+ *     unrelated "logged marker" meaning.
+ *
+ * Increment 26 (docs/CAPACITY_BAR_RULES.md §2/§6 invariant #1) ABOLISHED the
+ * grey-hatched row-b treatment (`.bar-baseline-idle`, formerly the
+ * `baseline_idle` kind): a baseline ticket a developer still holds is now
+ * ALWAYS `baseline_worked` — plain solid green — whether or not they've
+ * logged time on it yet. Only TWO hatch treatments remain, `.bar-handoff`
+ * and `.bar-idle`, each still using its own hatch angle (105deg/15deg) so the
+ * distinction survives even at thumbnail size, plus reduced opacity + a
+ * matching dashed outline (neither plain grey/blue/red has either), so a
+ * hatch always reads as "provisional/informative", never a solid commitment.
+ */
+.bar-handoff {
+  background: repeating-linear-gradient(105deg, var(--capacity-blue) 0, var(--capacity-blue) 2px, transparent 2px, transparent 8px);
+  opacity: 0.55;
+  border: 1px dashed var(--capacity-blue);
+  box-sizing: border-box;
+}
+
+.bar-idle {
+  background: repeating-linear-gradient(15deg, var(--warn) 0, var(--warn) 2px, transparent 2px, transparent 8px);
+  opacity: 0.55;
+  border: 1px dashed var(--warn);
+  box-sizing: border-box;
+}
+
+/**
+ * SPEC_15 §2/§4 — wrapper for ONE per-ticket segment on a developer's
+ * capacity bar (one DeveloperTicketSegment). `position: relative` so an
+ * inner `.bar-logged-marker` can be positioned against just THIS segment's
+ * own width, not the whole bar.
+ */
+.bar-ticket-seg {
+  position: relative;
+  display: flex;
+  height: 100%;
+}
+
+/**
+ * SPEC_15 §2/§4, kind names updated for SPEC_17 §1 — the "logged hours"
+ * marker on a `baseline_worked`/`acquired` segment (kind ∈
+ * SEGMENT_LOGGED_MARKER_KINDS), shown when
+ * logged_hours <= estimate_hours (a mark INSIDE the estimate-length bar).
+ * DELIBERATELY a different visual treatment from the pre-existing
+ * `.bar-marker` — that one means "this person's AVAILABLE hours reference
+ * line" (a capacity-planning concept); this one means "actual logged hours
+ * on this one ticket" (a realized-work concept). Different color (brand
+ * orange, not `--text`) and thicker, so the two are never confused even
+ * when both appear in the same row.
+ */
+.bar-logged-marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  background: var(--brand-orange-600);
+  pointer-events: none;
+}
+
+/**
+ * SPEC_15 §2/§4 — the overshoot case of the logged marker: logged_hours >
+ * estimate_hours. Rendered as a visible EXTENSION past the segment's own
+ * estimate-length box (never squeezed inside it), hatched in the same
+ * brand-orange marker color so it reads as "the marker, spilling over" —
+ * distinct from `.bar-blue`'s stripe (different color) and from a plain
+ * `.bar-red`/`.bar-green` fill (hatched, not solid, so an overshoot always
+ * looks visually different from a normal segment of the same color).
+ */
+.bar-overshoot {
+  background: repeating-linear-gradient(45deg, var(--brand-orange-600) 0, var(--brand-orange-600) 3px, #ffffff 3px, #ffffff 6px);
+  border-top: 1.5px solid var(--brand-orange-600);
+  border-bottom: 1.5px solid var(--brand-orange-600);
+}
+
+/*
+ * The no-estimate variant of the span above: a segment whose ticket has NO
+ * estimate paints its entire logged time here (base = 0), which is "never
+ * estimated", not a genuine overrun — muted grey hatch + dashed borders so
+ * the two states can't be mistaken for each other at a glance.
+ */
+.bar-overshoot.bar-overshoot-noestimate {
+  background: repeating-linear-gradient(45deg, var(--muted) 0, var(--muted) 3px, #ffffff 3px, #ffffff 6px);
+  border-top: 1.5px dashed var(--muted);
+  border-bottom: 1.5px dashed var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.stat {
+  display: inline-flex;
+  flex-direction: column;
+  margin-right: 24px;
+}
+
+.stat .stat-value {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat .stat-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.grabbable {
+  cursor: grab;
+}
+
+/* Modal (SPEC_04 §6 ticket changelog panel) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--sp-4) 20px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-header h3 {
+  font-size: 14px;
+}
+
+/* Ticket changelog rows (SPEC_04 §6): actor + human detail + when. */
+.changelog-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.changelog-row:last-child {
+  border-bottom: none;
+}
+
+.changelog-who {
+  font-weight: 600;
+  min-width: 130px;
+}
+
+.changelog-what {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* Build version next to the app title; amber when web and API builds differ. */
+.version-badge {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.version-badge[data-mismatch] {
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border-color: #fde68a;
+  font-weight: 600;
+}
+
+/* Wide data tables scroll inside their own container instead of widening the page. */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* ── Increment 39: account cluster, sign-in & no-access pages, read-only notice ── */
+.account-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+  background: var(--bg);
+}
+
+.role-badge.planner {
+  color: var(--brand-blue-700);
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: var(--bg);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  text-align: center;
+  align-items: center;
+}
+
+.auth-card .brand {
+  justify-content: center;
+}
+
+.auth-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.auth-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth-card .msg {
+  width: 100%;
+  text-align: left;
+}
+
+.forbidden-notice {
+  position: fixed;
+  bottom: var(--sp-4);
+  right: var(--sp-4);
+  max-width: 380px;
+  z-index: 50;
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+}

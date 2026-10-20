@@ -1,0 +1,26 @@
+node_modules/
+dist/
+*.local
+.env
+*.sqlite
+*.sqlite-*
+.DS_Store
+coverage/
+.turbo/
+playwright-report/
+test-results/
+# Increment 12 (SPEC_12 §6): pre-delete sprint JSON snapshots — runtime output.
+/exports/
+# scripts/backup.sh output — pg_dump snapshots of the user's REAL database.
+# Runtime artifacts holding real planning data; must never enter git history.
+/backups/
+# The user's spec/orchestration documents — deliberately untracked by the
+# project's working convention (they are inputs to increments, not code).
+/Sprint Planning nad OP/
+
+# Machine-specific Claude Code notes (real DB names, neighbouring projects).
+CLAUDE.local.md
+
+# Local tooling — never part of the published repo.
+.claude/
+.idea/

@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "resolveJsonModule": true
+  },
+  "include": [
+    "mock-op-server.ts",
+    "mock-op-server/**/*.ts",
+    "scenario-types.ts",
+    "scenario.ts",
+    "scenarios/**/*.ts",
+    "sim.ts"
+  ]
+}

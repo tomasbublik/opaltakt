@@ -1,0 +1,11 @@
+-- Increment 34 (docs/INCREMENT_34_CONTRACTS.md §4) — freeze snapshot amendment:
+-- sprint_item.frozen_remaining_hours (Delivered = burned remaining needs the
+-- REMAINING value at freeze time, not just the effective-estimate one 0003
+-- already snapshots).
+--
+-- IDEMPOTENT (IF NOT EXISTS) per the standing convention (see 0003's own
+-- header comment): the user's long-lived `tsx watch` dev session applies
+-- migrations to the real database on every restart, so a plain ADD COLUMN
+-- would crash boot with 42701 if this file ever re-runs against a database
+-- that already has it.
+ALTER TABLE "sprint_item" ADD COLUMN IF NOT EXISTS "frozen_remaining_hours" double precision;

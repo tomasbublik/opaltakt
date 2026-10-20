@@ -1,0 +1,21 @@
+{
+  "_type": "Schema",
+  "_dependencies": [],
+  "id": { "type": "Integer", "name": "ID", "required": true, "writable": false },
+  "subject": { "type": "String", "name": "Subject", "required": true, "writable": true },
+  "estimatedTime": { "type": "Duration", "name": "Work", "required": false, "writable": true },
+  "remainingTime": { "type": "Duration", "name": "Remaining work", "required": false, "writable": true },
+  "derivedEstimatedTime": { "type": "Duration", "name": "Total work", "required": false, "writable": false },
+  "derivedRemainingTime": { "type": "Duration", "name": "Total remaining work", "required": false, "writable": false },
+  "spentTime": { "type": "Duration", "name": "Spent time", "required": false, "writable": false },
+  "storyPoints": { "type": "Integer", "name": "Story points", "required": false, "writable": true },
+  "percentageDone": { "type": "Integer", "name": "% Complete", "required": false, "writable": false },
+  "customField1": {
+    "type": "Integer",
+    "name": "Effort (story points)",
+    "required": false,
+    "writable": true,
+    "hasDefault": false
+  },
+  "_links": { "self": { "href": "/api/v3/work_packages/schema" } }
+}

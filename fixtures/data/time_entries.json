@@ -1,0 +1,57 @@
+{
+  "_type": "Collection",
+  "total": 3,
+  "count": 3,
+  "pageSize": 30,
+  "offset": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "TimeEntry",
+        "id": 5001,
+        "hours": "PT2H",
+        "spentOn": "2026-06-24",
+        "comment": { "format": "plain", "raw": "docs", "html": "<p>docs</p>" },
+        "createdAt": "2026-06-24T17:00:00Z",
+        "updatedAt": "2026-06-24T17:00:00Z",
+        "_links": {
+          "self": { "href": "/api/v3/time_entries/5001" },
+          "workPackage": { "href": "/api/v3/work_packages/1003", "title": "Write API documentation" },
+          "user": { "href": "/api/v3/users/1", "title": "Ada Lovelace" },
+          "project": { "href": "/api/v3/projects/3", "title": "Demo Project" }
+        }
+      },
+      {
+        "_type": "TimeEntry",
+        "id": 5002,
+        "hours": "PT2H",
+        "spentOn": "2026-06-25",
+        "comment": { "format": "plain", "raw": "login work", "html": "<p>login work</p>" },
+        "createdAt": "2026-06-25T17:00:00Z",
+        "updatedAt": "2026-06-25T17:00:00Z",
+        "_links": {
+          "self": { "href": "/api/v3/time_entries/5002" },
+          "workPackage": { "href": "/api/v3/work_packages/1001", "title": "Implement login" },
+          "user": { "href": "/api/v3/users/1", "title": "Ada Lovelace" },
+          "project": { "href": "/api/v3/projects/3", "title": "Demo Project" }
+        }
+      },
+      {
+        "_type": "TimeEntry",
+        "id": 5003,
+        "hours": "PT2H",
+        "spentOn": "2026-06-26",
+        "comment": { "format": "plain", "raw": "more login work", "html": "<p>more login work</p>" },
+        "createdAt": "2026-06-26T17:00:00Z",
+        "updatedAt": "2026-06-26T17:00:00Z",
+        "_links": {
+          "self": { "href": "/api/v3/time_entries/5003" },
+          "workPackage": { "href": "/api/v3/work_packages/1001", "title": "Implement login" },
+          "user": { "href": "/api/v3/users/1", "title": "Ada Lovelace" },
+          "project": { "href": "/api/v3/projects/3", "title": "Demo Project" }
+        }
+      }
+    ]
+  },
+  "_links": { "self": { "href": "/api/v3/time_entries" } }
+}

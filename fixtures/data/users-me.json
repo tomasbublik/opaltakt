@@ -1,0 +1,13 @@
+{
+  "_type": "User",
+  "id": 1,
+  "name": "Ada Lovelace",
+  "login": "ada",
+  "firstName": "Ada",
+  "lastName": "Lovelace",
+  "email": "ada@example.test",
+  "status": "active",
+  "_links": {
+    "self": { "href": "/api/v3/users/1", "title": "Ada Lovelace" }
+  }
+}
