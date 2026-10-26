@@ -28,6 +28,7 @@ function fakeOpWithMemberships(memberships: OpMembership[]): OpClient {
     request: <T>() => Promise.resolve(undefined as T),
     getCurrentUser: () => Promise.resolve({ _type: "User", id: 1, name: "x" }),
     getProjects: () => Promise.resolve(coll([]) as never),
+    getProject: (id: number) => Promise.reject(new Error(`404 project ${id}`)),
     getWorkPackages: () => Promise.resolve(coll([]) as never),
     getTimeEntries: () => Promise.resolve(coll([]) as never),
     getVersions: () => Promise.resolve(coll([]) as never),

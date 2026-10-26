@@ -16,6 +16,7 @@ import type {
 } from "@osp/op-client";
 import type { NewChangelogEntry, NewOffSprintTimeEntry, NewTicketBaseline, Repositories } from "@osp/db";
 import type { SnapshotWriter } from "@osp/sync";
+import { refreshProjectsBestEffort } from "./projectRefresh";
 import {
   aggregateTimeEntries,
   registerSprintUpdateController,
@@ -942,6 +943,17 @@ async function runScopedFetchAndPersist(
       processed += p.wpOpIds.length;
       fetches.push({ partition: p, fetched });
       allWps.push(...fetched.wps);
+    }
+    // Increment 40 (§2.A3): refresh the touched projects' identifier/name for
+    // this pass's connections — best-effort, never fails the run.
+    // (`partition` is the run-cancel-wrapped client from `scoped` above.)
+    for (const { partition: p, fetched } of fetches) {
+      await refreshProjectsBestEffort(
+        p.op,
+        repos,
+        p.connectionId,
+        fetched.wps.map((wp) => parseOpId(wp._links.project?.href ?? null)),
+      );
     }
     return { wpCount: totalCount, changesCount, fetches, allWps };
   } finally {

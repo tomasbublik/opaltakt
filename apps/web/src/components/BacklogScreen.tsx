@@ -12,7 +12,14 @@ type HasEstimate = "" | "yes" | "no";
 type FilterOptionEntry = BacklogFilterOptionsResponse["assignees"][number];
 
 interface Filters {
-  project: string; // project_name, or ""
+  /**
+   * Increment 40 (§2 Agent C / B1): the connection-safe composite project
+   * key (`FilterOptionEntry.key`, `${connection_id}:${project_op_id}` or
+   * `none:${project_op_id}`) — NEVER the project name, which can collide
+   * across servers (pillar 2: op_id is identity, name is display-only).
+   * "" means "All".
+   */
+  projectKey: string;
   status: string;
   /**
    * Increment 23 (SPEC_23 §2): the connection-safe composite key
@@ -31,7 +38,7 @@ interface Filters {
 }
 
 const EMPTY: Filters = {
-  project: "",
+  projectKey: "",
   status: "",
   assigneeKey: "",
   versionKey: "",
@@ -69,9 +76,26 @@ function sameText(a: string | null | undefined, b: string): boolean {
  * that decides membership. Re-deriving a bare-id comparison here would
  * reintroduce the exact cross-server collision this increment fixes.
  */
+/** Increment 40: the same composite key the backend emits for the project
+ * facet — `${connection_id ?? "none"}:${project_op_id}`. */
+export function projectKeyOf(it: Pick<BacklogItem, "connection_id" | "project_op_id">): string {
+  return `${it.connection_id ?? "none"}:${it.project_op_id}`;
+}
+
+/** Increment 40 §1.2 (web tables): the displayed project — name, falling back
+ * to the identifier; null when neither is known (rendered as "—"). */
+export function projectDisplayName(
+  it: Pick<BacklogItem, "project_name" | "project_identifier">,
+): string | null {
+  return it.project_name ?? it.project_identifier ?? null;
+}
+
 function applyFilters(items: BacklogItem[], f: Filters): BacklogItem[] {
   return items.filter((it) => {
-    if (f.project && !sameText(it.project_name, f.project)) return false;
+    // Increment 40: `projectKey` is ALSO sent to the API (server-side match);
+    // this exact-key re-check is consistent with it (same composite key, never
+    // the name) and keeps the table correct even before a re-fetch lands.
+    if (f.projectKey && projectKeyOf(it) !== f.projectKey) return false;
     if (f.status && !sameText(it.status_name, f.status)) return false;
     if (f.priority && !sameText(it.priority, f.priority)) return false;
     if (f.hasEstimate === "yes" && it.effective_hours == null) return false;
@@ -81,7 +105,7 @@ function applyFilters(items: BacklogItem[], f: Filters): BacklogItem[] {
 }
 
 // ── Sorting (SPEC §8 backlog) ────────────────────────────────────────────────
-export type SortKey = "id" | "status" | "version" | "priority" | "server";
+export type SortKey = "id" | "project" | "status" | "version" | "priority" | "server";
 export type SortDir = "asc" | "desc";
 export interface Sort {
   key: SortKey;
@@ -100,6 +124,11 @@ function sortValue(it: BacklogItem, key: SortKey): number | string | null {
   switch (key) {
     case "id":
       return it.op_id;
+    case "project": {
+      // Increment 40: by the DISPLAYED name, case-insensitively; nulls last.
+      const name = projectDisplayName(it);
+      return name ? name.toLowerCase() : null;
+    }
     case "status":
       return it.status_name ?? null;
     case "version":
@@ -208,8 +237,9 @@ export function BacklogScreen({
         connectionId: filters.connectionId ? Number(filters.connectionId) : undefined,
         assigneeKey: filters.assigneeKey || undefined,
         versionKey: filters.versionKey || undefined,
+        projectKey: filters.projectKey || undefined,
       }),
-    [refreshKey, filters.connectionId, filters.assigneeKey, filters.versionKey],
+    [refreshKey, filters.connectionId, filters.assigneeKey, filters.versionKey, filters.projectKey],
   );
   const [sort, setSort] = useState<Sort>({ key: "id", dir: "asc" });
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
@@ -218,20 +248,6 @@ export function BacklogScreen({
   const [removing, setRemoving] = useState(false);
 
   const items = state.data ?? [];
-
-  // The `project` filter is stored/displayed as the project NAME (matching
-  // applyFilters()'s client-side narrowing), but the filter-options endpoint
-  // (like BacklogQuery) takes a numeric `projectId` — resolve it from the
-  // currently-loaded items (first match is good enough; this is the same
-  // precision the existing name-keyed dropdown already has).
-  const projectIdByName = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const it of items) {
-      const name = it.project_name ?? "";
-      if (name && !m.has(name)) m.set(name, it.project_op_id);
-    }
-    return m;
-  }, [items]);
 
   // Increment 19 (SPEC_19 §1/§3): options for every dropdown come from the
   // backend, CASCADINGLY — each facet respects every OTHER currently active
@@ -242,7 +258,8 @@ export function BacklogScreen({
   const filterOptionsState = useAsync(
     () =>
       api.getBacklogFilterOptions({
-        projectId: filters.project ? projectIdByName.get(filters.project) : undefined,
+        // Increment 40 (B1): the connection-safe composite project key.
+        projectKey: filters.projectKey || undefined,
         status: filters.status || undefined,
         // Increment 23 (SPEC_23 §2): the connection-safe composite key, NEVER
         // the legacy bare op_id (`assignee`/`version` — still accepted by the
@@ -253,16 +270,7 @@ export function BacklogScreen({
         priority: filters.priority || undefined,
         connectionId: filters.connectionId ? Number(filters.connectionId) : undefined,
       }),
-    // NOTE: deliberately NOT depending on `projectIdByName` — it's a fresh
-    // Map every render while `items` is still `[]` pre-load (state.data ??
-    // []), which caused an infinite render loop (useAsync's effect keeps
-    // firing → setState → re-render → new Map → deps differ → fires again).
-    // Not needed anyway: useAsync's fetcher closure always reads the LATEST
-    // `projectIdByName` at call time (see its `fnRef.current = fn` — updated
-    // every render regardless of `deps`), and by the time a user can even
-    // select a project (its options come from this same endpoint), the
-    // backlog items — and so `projectIdByName` — are already loaded.
-    [filters.project, filters.status, filters.assigneeKey, filters.versionKey, filters.priority, filters.connectionId],
+    [filters.projectKey, filters.status, filters.assigneeKey, filters.versionKey, filters.priority, filters.connectionId],
   );
 
   // Server filter options accumulate across fetches on top of whatever the
@@ -303,6 +311,23 @@ export function BacklogScreen({
         .sort((a, b) => a.name.localeCompare(b.name)),
     };
   }, [filterOptionsState.data, knownConnections]);
+
+  // Increment 40: label = name; when two options share a name (e.g. the same
+  // project op_id on two servers), append the connection label like the
+  // assignee/version facets do.
+  const projectOptionLabels = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of options.projects) {
+      const k = p.name.trim().toLowerCase();
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    const m = new Map<string, string>();
+    for (const p of options.projects) {
+      const dup = (counts.get(p.name.trim().toLowerCase()) ?? 0) > 1;
+      m.set(p.key, dup ? formatFilterOptionLabel(p) : p.name);
+    }
+    return m;
+  }, [options.projects]);
 
   const filtered = useMemo(() => applyFilters(items, filters), [items, filters]);
   const sorted = useMemo(
@@ -409,10 +434,10 @@ export function BacklogScreen({
       <div className="row" style={{ marginBottom: 12 }}>
         <div className="field" style={{ marginBottom: 0 }}>
           <label htmlFor="f-project">Project</label>
-          <select id="f-project" value={filters.project} onChange={(e) => set("project", e.target.value)}>
+          <select id="f-project" value={filters.projectKey} onChange={(e) => set("projectKey", e.target.value)}>
             <option value="">All</option>
             {options.projects.map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <option key={p.key} value={p.key}>{projectOptionLabels.get(p.key) ?? p.name}</option>
             ))}
           </select>
         </div>
@@ -515,7 +540,7 @@ export function BacklogScreen({
                 </th>
                 <SortTh label="ID" sortKey="id" sort={sort} onToggle={toggleSort} />
                 <th>Subject</th>
-                <th>Project</th>
+                <SortTh label="Project" sortKey="project" sort={sort} onToggle={toggleSort} />
                 <SortTh label="Server" sortKey="server" sort={sort} onToggle={toggleSort} />
                 <th>Type</th>
                 <SortTh label="Status" sortKey="status" sort={sort} onToggle={toggleSort} />
@@ -655,7 +680,9 @@ function BacklogRow({
           {item.subject}
         </a>
       </td>
-      <td>{item.project_name ?? <span className="muted">—</span>}</td>
+      <td title={item.project_identifier ?? undefined}>
+        {projectDisplayName(item) ?? <span className="muted">—</span>}
+      </td>
       <td>
         {item.connection_label ?? item.connection_base_url ?? <span className="muted">—</span>}
         {item.stale ? (

@@ -40,6 +40,7 @@ async function seedWp(
       connection_id: null,
       op_id: opId,
       project_op_id: 100,
+      project_name: null,
       subject: `WP ${opId}`,
       type_name: "Task",
       status_name: p.done ? "Closed" : "In progress",

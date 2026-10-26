@@ -99,6 +99,18 @@ export interface MembershipsQuery {
 }
 
 /**
+ * Increment 40 (INCREMENT_40_CONTRACTS §2.A3) — pagination params for one page
+ * of the projects COLLECTION. A real OP instance can have more projects than
+ * one default page holds; `fetchAllProjects` (paginate.ts) loops offset/pageSize.
+ * Optional — omitting them requests OP's default (single) page, which is what
+ * every pre-Increment-40 caller of `getProjects()` received.
+ */
+export interface ProjectsQuery {
+  pageSize?: number;
+  offset?: number;
+}
+
+/**
  * The GET-only request contract. Implementations MUST reject any method other
  * than "GET" (thrown, before the network call).
  */
@@ -138,8 +150,17 @@ export interface OpClient {
    */
   getMemberships(query?: MembershipsQuery): Promise<HalCollection<OpMembership>>;
 
-  /** GET /api/v3/projects. */
-  getProjects(): Promise<HalCollection<OpProject>>;
+  /** GET /api/v3/projects — one page (pass `query` to page; `fetchAllProjects`
+   * in paginate.ts collects the whole collection). */
+  getProjects(query?: ProjectsQuery): Promise<HalCollection<OpProject>>;
+
+  /**
+   * Increment 40 — GET /api/v3/projects/:id. Throws `OpHttpError` on any
+   * non-2xx (a 404/403 for a hidden or deleted project included) — callers
+   * that treat the project as optional decoration (`refreshProjects` in
+   * @osp/sync) catch and skip. Read-only, like every other method.
+   */
+  getProject(id: number): Promise<OpProject>;
 
   /** GET /api/v3/work_packages — a single page (caller loops offset/pageSize). */
   getWorkPackages(

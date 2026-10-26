@@ -5,6 +5,8 @@ import {
   type AdvanceDayResult,
   type MockEvent,
   type MockStateSummary,
+  type RenameProjectRequest,
+  type RenameProjectResult,
   type Scenario,
   type ScenarioProject,
   type ScenarioStatus,
@@ -206,9 +208,87 @@ export class ScenarioEngine {
   private workPackages: EngineWorkPackage[] = [];
   private timeEntries: EngineTimeEntry[] = [];
   private journals: EngineJournal[] = [];
+  /**
+   * Increment 40 — FIXTURE-mode project renames (`POST /__mock/rename-project`
+   * with no scenario loaded). The static `data/projects.json` is never
+   * written; the HTTP layer overlays these on every project-bearing response.
+   * Cleared by `load`/`reset`. (Scenario mode mutates `this.projects`.)
+   */
+  private fixtureProjectOverrides = new Map<number, { name?: string; identifier?: string }>();
+  /** Supplies the static fixture-mode project list (for rename validation). */
+  private readonly fixtureProjects: () => ScenarioProject[];
 
-  constructor(registry: ScenarioRegistry = loadScenarioRegistry) {
+  constructor(
+    registry: ScenarioRegistry = loadScenarioRegistry,
+    fixtureProjects: () => ScenarioProject[] = () => [],
+  ) {
     this.registry = registry;
+    this.fixtureProjects = fixtureProjects;
+  }
+
+  /**
+   * Increment 40 — fixture-mode overlay for one project id (empty object when
+   * not renamed). Read by the HTTP layer; never mutates the JSON files.
+   */
+  fixtureProjectOverride(id: number): { name?: string; identifier?: string } {
+    return this.fixtureProjectOverrides.get(id) ?? {};
+  }
+
+  /**
+   * POST /__mock/rename-project/:id (Increment 40) — rename a project's
+   * `name` and/or `identifier`. The `op_id` never changes (it is the identity;
+   * name/identifier are display-only — exactly the real OP rename semantics).
+   * Scenario mode: mutates the loaded state, so every later project endpoint
+   * and every WP/time-entry/membership/version `_links.project.title` carries
+   * the new values. Fixture mode: recorded as an overlay on data/projects.json.
+   * Unknown id → 404; empty patch / non-string fields → 400.
+   */
+  renameProject(id: number, patch: RenameProjectRequest): RenameProjectResult {
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new MockEngineError(400, `rename-project expects a positive integer id, got "${id}"`);
+    }
+    const name = patch.name;
+    const identifier = patch.identifier;
+    if (name === undefined && identifier === undefined) {
+      throw new MockEngineError(400, "rename-project needs at least one of { name, identifier }");
+    }
+    for (const [field, v] of [["name", name], ["identifier", identifier]] as const) {
+      if (v !== undefined && (typeof v !== "string" || v.trim() === "")) {
+        throw new MockEngineError(400, `rename-project: "${field}" must be a non-empty string`);
+      }
+    }
+    if (this.scenario !== null) {
+      const project = this.projects.find((p) => p.id === id);
+      if (project === undefined) {
+        throw new MockEngineError(404, `Scenario has no project with id ${id}`);
+      }
+      if (name !== undefined) project.name = name;
+      if (identifier !== undefined) project.identifier = identifier;
+      return {
+        project: {
+          id: project.id,
+          identifier: project.identifier,
+          name: project.name,
+          hidden: project.hidden === true,
+        },
+      };
+    }
+    const base = this.fixtureProjects().find((p) => p.id === id);
+    if (base === undefined) {
+      throw new MockEngineError(404, `Fixture data has no project with id ${id}`);
+    }
+    const next = { ...this.fixtureProjectOverride(id) };
+    if (name !== undefined) next.name = name;
+    if (identifier !== undefined) next.identifier = identifier;
+    this.fixtureProjectOverrides.set(id, next);
+    return {
+      project: {
+        id,
+        identifier: next.identifier ?? base.identifier,
+        name: next.name ?? base.name,
+        hidden: false,
+      },
+    };
   }
 
   get mode(): "fixtures" | "scenario" {
@@ -290,6 +370,7 @@ export class ScenarioEngine {
     // A fresh scenario load starts fast — a test that needs the abort window
     // re-arms the delay explicitly (SPEC_19 §2 harness contract).
     this.workPackagesLatencyMs = 0;
+    this.fixtureProjectOverrides.clear();
     this.urgentCount = 0;
     this.nextWpId = AUTO_WP_ID_START;
     this.nextTimeEntryId = FIRST_TIME_ENTRY_ID;
@@ -373,6 +454,7 @@ export class ScenarioEngine {
     this.date = null;
     this.mutationsToday = 0;
     this.workPackagesLatencyMs = 0;
+    this.fixtureProjectOverrides.clear();
     this.urgentCount = 0;
     this.statuses = [];
     this.projects = [];

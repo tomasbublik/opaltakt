@@ -17,6 +17,7 @@ function wp(over: Partial<BacklogItem>): BacklogItem {
     op_id: 1,
     project_op_id: 1,
     project_name: "P",
+    project_identifier: null,
     subject: "WP",
     type_name: "Task",
     status_name: "New",

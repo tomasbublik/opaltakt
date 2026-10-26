@@ -596,6 +596,22 @@ button.th-sort:focus-visible {
   border-color: var(--capacity-blue-border);
 }
 
+/* Increment 40 (S1): the ticket's OP project on a board card — deliberately
+   NEUTRAL (transparent, grey outline, muted text): no colour coding, and it
+   must never borrow a capacity-bar colour (green/red/blue/orange). Long
+   identifiers truncate rather than wrapping the card meta row. */
+.badge.project {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border);
+  font-weight: 500;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
 
 .msg {
   padding: 14px 16px;

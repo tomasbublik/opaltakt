@@ -47,6 +47,7 @@ export function makeBacklogItem(over: Partial<BacklogItem> = {}): BacklogItem {
     op_id: 1,
     project_op_id: 100,
     project_name: "Demo Project",
+    project_identifier: null,
     subject: "Do the thing",
     type_name: "Task",
     status_name: "New",
@@ -578,6 +579,10 @@ export function makeTicketEstimateLine(over: Partial<TicketEstimateLine> = {}): 
     multi_sprint: null,
     delta_hours: -1,
     overshoot_flag: false,
+    // Increment 40 (§3): project unknown by default; project tests override.
+    project_op_id: null,
+    project_name: null,
+    project_identifier: null,
     ...over,
   };
 }

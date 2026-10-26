@@ -82,6 +82,7 @@ function wp(p: Partial<NewWorkPackageCache> & { op_id: number }): NewWorkPackage
     connection_id: p.connection_id ?? null,
     op_id: p.op_id,
     project_op_id: 100,
+    project_name: null,
     subject: p.subject ?? `WP ${p.op_id}`,
     type_name: "Task",
     status_name: p.status_name ?? "In progress",
@@ -163,6 +164,11 @@ async function freezeDirectly(r: Repositories, sprintId: number, frozenAt: strin
       // AMENDMENT (contracts §1): items/detailed needs the project id once the
       // cache row is gone — mirrored from freeze.ts's real snapshot writer.
       frozen_project_op_id: live?.project_op_id ?? null,
+      // Increment 40 (INCREMENT_40_CONTRACTS §1.3): project display fields at
+      // freeze time — mirrored from freeze.ts (live cache name; identifier is
+      // not needed by these Increment-31 assertions).
+      frozen_project_name: live?.project_name ?? null,
+      frozen_project_identifier: null,
       // Increment 34 (INCREMENT_34_CONTRACTS.md §4): remaining at freeze time,
       // live-cache first, baseline fallback — mirrored from freeze.ts.
       frozen_remaining_hours: live?.remaining_hours ?? base?.remaining_hours ?? null,

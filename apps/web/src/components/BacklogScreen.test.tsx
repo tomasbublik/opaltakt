@@ -34,7 +34,15 @@ function optionsFromItems(rows: ReturnType<typeof makeBacklogItem>[]) {
     return [...m.values()];
   };
   return {
-    projects: uniq(rows.map((i) => i.project_name)),
+    // Increment 40 (§3): keyed like assignees/versions —
+    // `${connection_id ?? "none"}:${project_op_id}`, name = resolved name.
+    projects: uniqByKey(
+      rows.map((i) =>
+        i.project_name != null || i.project_identifier != null
+          ? { id: i.project_op_id, name: i.project_name ?? i.project_identifier ?? `#${i.project_op_id}`, connection_id: i.connection_id, connection_label: i.connection_label }
+          : null,
+      ),
+    ).sort((a, b) => a.name.localeCompare(b.name)),
     statuses: uniq(rows.map((i) => i.status_name)),
     assignees: uniqByKey(
       rows.map((i) =>
@@ -153,6 +161,78 @@ describe("BacklogScreen", () => {
     await user.selectOptions(screen.getByLabelText("Project"), "Platform");
     await waitFor(() => expect(screen.queryByText("Beta")).not.toBeInTheDocument());
     expect(screen.getByText("Alpha")).toBeInTheDocument();
+  });
+
+  it("sorts by the displayed project name case-insensitively, nulls last (Increment 40)", async () => {
+    const user = userEvent.setup();
+    setBacklog([
+      makeBacklogItem({ op_id: 1, subject: "No project", project_op_id: 0, project_name: null, project_identifier: null }),
+      makeBacklogItem({ op_id: 2, subject: "Northwind ticket", project_op_id: 10, project_name: "northwind Payments", project_identifier: "northwind" }),
+      makeBacklogItem({ op_id: 3, subject: "Harbor ticket", project_op_id: 20, project_name: "Harbor Ops", project_identifier: "harbor-ops" }),
+      // Name unknown → identifier is the displayed (and sorted-by) value.
+      makeBacklogItem({ op_id: 4, subject: "Ident-only ticket", project_op_id: 30, project_name: null, project_identifier: "aurora" }),
+    ]);
+    render(<BacklogScreen refreshKey={0} baseUrl="https://op.example.com" />);
+    await waitFor(() => expect(screen.getByText("Harbor ticket")).toBeInTheDocument());
+
+    const subjects = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => within(r).getAllByRole("link")[1]?.textContent);
+
+    await user.click(screen.getByRole("button", { name: "Sort by Project" }));
+    expect(subjects()).toEqual(["Ident-only ticket", "Harbor ticket", "Northwind ticket", "No project"]);
+    await user.click(screen.getByRole("button", { name: "Sort by Project" }));
+    // Descending — nulls still last.
+    expect(subjects()).toEqual(["Northwind ticket", "Harbor ticket", "Ident-only ticket", "No project"]);
+
+    // Cell: name, tooltip = identifier; identifier fallback; "—" when both null.
+    const nw = screen.getByText("Northwind ticket").closest("tr")!;
+    expect(within(nw).getByText("northwind Payments")).toHaveAttribute("title", "northwind");
+    const ident = screen.getByText("Ident-only ticket").closest("tr")!;
+    expect(within(ident).getByText("aurora")).toBeInTheDocument();
+    const none = screen.getByText("No project").closest("tr")!;
+    expect(within(none).getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("filters by the connection-safe project KEY and sends it as projectKey (Increment 40)", async () => {
+    const user = userEvent.setup();
+    // SAME project op_id (10) on two servers with the SAME name — must stay two
+    // distinct options (disambiguated by connection label) and never merge.
+    const rows = [
+      makeBacklogItem({ op_id: 1, subject: "Server A ticket", connection_id: 1, connection_label: "alpha", project_op_id: 10, project_name: "Northwind", project_identifier: "northwind" }),
+      makeBacklogItem({ op_id: 2, subject: "Server B ticket", connection_id: 2, connection_label: "beta", project_op_id: 10, project_name: "Northwind", project_identifier: "nw" }),
+      makeBacklogItem({ op_id: 3, subject: "Harbor ticket", connection_id: 1, connection_label: "alpha", project_op_id: 20, project_name: "Harbor Ops", project_identifier: "harbor-ops" }),
+    ];
+    setBacklog(rows);
+    render(<BacklogScreen refreshKey={0} baseUrl="https://op.example.com" />);
+    await waitFor(() => expect(screen.getByText("Server B ticket")).toBeInTheDocument());
+
+    const select = screen.getByLabelText("Project") as HTMLSelectElement;
+    const opts = [...select.options].map((o) => [o.value, o.textContent]);
+    expect(opts).toEqual([
+      ["", "All"],
+      ["1:20", "Harbor Ops"],
+      ["1:10", "Northwind (alpha)"],
+      ["2:10", "Northwind (beta)"],
+    ]);
+
+    await user.selectOptions(select, "2:10");
+    await waitFor(() => expect(screen.queryByText("Server A ticket")).not.toBeInTheDocument());
+    expect(screen.getByText("Server B ticket")).toBeInTheDocument();
+    expect(screen.queryByText("Harbor ticket")).not.toBeInTheDocument();
+    expect(select.value).toBe("2:10");
+
+    // Sent to BOTH endpoints as the key — never a name, never a bare projectId.
+    await waitFor(() =>
+      expect(mockApi.getBacklog).toHaveBeenLastCalledWith(expect.objectContaining({ projectKey: "2:10" })),
+    );
+    expect(mockApi.getBacklogFilterOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ projectKey: "2:10" }),
+    );
+    const lastOptsCall = mockApi.getBacklogFilterOptions!.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(lastOptsCall.projectId).toBeUndefined();
   });
 
   it("re-fetches filter options CASCADINGLY on every filter change, narrowing what other dropdowns offer (SPEC_19 §1/§3)", async () => {

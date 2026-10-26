@@ -3482,3 +3482,36 @@ describe("SprintBoardScreen — Export status PDF", () => {
     expect(screen.getByTestId("export-status-pdf")).not.toBeDisabled();
   });
 });
+
+// Increment 40 (S1): the neutral project badge on a board card — identifier
+// (short), tooltip = name; identifier null → name; both null → no badge.
+describe("SprintBoardScreen — Increment 40 project badge", () => {
+  it("renders the project identifier badge (tooltip = name) before the status badge", async () => {
+    mockApi.getBacklog = vi.fn().mockResolvedValue([]);
+    mockApi.getSprintItemsDetailed = vi.fn().mockResolvedValue([
+      makeSprintItemDetail({ op_id: 7, subject: "Northwind fix", project_name: "Northwind Payments", project_identifier: "northwind", status_name: "New" }),
+      makeSprintItemDetail({ op_id: 8, subject: "Name-only fix", project_name: "Harbor Ops", project_identifier: null }),
+      makeSprintItemDetail({ op_id: 9, subject: "Projectless fix", project_op_id: 0, project_name: null, project_identifier: null }),
+    ]);
+
+    renderBoard([makeSprint({ id: 1, name: "Sprint 1", status: "active", activated_at: "2026-06-01T00:00:00Z" })]);
+
+    const sprintZone = await screen.findByTestId("drop-sprint");
+    const nwBadge = within(sprintZone).getByText("northwind");
+    expect(nwBadge).toHaveClass("badge", "project");
+    expect(nwBadge).toHaveAttribute("title", "Northwind Payments");
+    // Placed BEFORE the status badge in card-meta.
+    const meta = nwBadge.closest(".card-meta")!;
+    const badges = [...meta.querySelectorAll(".badge")];
+    expect(badges[0]).toBe(nwBadge);
+    expect(badges[1]).toHaveTextContent("New");
+
+    // Identifier null → name.
+    expect(within(sprintZone).getByText("Harbor Ops")).toHaveClass("project");
+
+    // Both null → nothing rendered for that card.
+    const projectless = within(sprintZone).getByTestId("wp-card-9");
+    expect(projectless.querySelector(".card-meta")).not.toBeNull();
+    expect(projectless.querySelector(".badge.project")).toBeNull();
+  });
+});

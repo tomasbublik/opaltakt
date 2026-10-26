@@ -1,4 +1,5 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getTableName } from "drizzle-orm";
 import {
@@ -76,7 +77,9 @@ describe("migrations — the single Postgres baseline (CONTRACTS §2)", () => {
         "ADDITIVE table (off_sprint_time_entry), same shape as 0002's new table. " +
         "Increment 34 (INCREMENT_34_CONTRACTS §4) adds 0005_increment34_multisprint.sql — " +
         "one ADDITIVE column (sprint_item.frozen_remaining_hours), same shape as 0003's " +
-        "columns. This " +
+        "columns. Increment 40 (INCREMENT_40_CONTRACTS §2.A1) adds " +
+        "0006_increment40_project.sql — ADDITIVE nullable columns (cache project_name, " +
+        "sprint_item.frozen_project_name/identifier) plus a pure-SQL, NULL-only backfill. This " +
         "list is therefore an explicit allow-list, not a 'never more than two' rule: a " +
         "file NOT listed here means a migration landed without a contract update.",
     ).toEqual([
@@ -86,6 +89,7 @@ describe("migrations — the single Postgres baseline (CONTRACTS §2)", () => {
       "0003_increment31_freeze.sql",
       "0004_off_sprint_time.sql",
       "0005_increment34_multisprint.sql",
+      "0006_increment40_project.sql",
     ]);
   });
 
@@ -210,6 +214,233 @@ describe("migrations — the single Postgres baseline (CONTRACTS §2)", () => {
            VALUES (999999, 1, now(), 'planned', 'baseline')`,
         ),
       ).rejects.toThrow(/foreign key|violates/i);
+    } finally {
+      await handle.close();
+    }
+  });
+});
+
+/**
+ * Increment 40 (docs/INCREMENT_40_CONTRACTS.md §2.A1/A4) — 0006's backfill.
+ *
+ * `openDb()` applies 0006 to an EMPTY database, where the backfill is a no-op.
+ * To exercise it, the test seeds pre-Increment-40 state (NULL project_name /
+ * frozen_project_*) AFTER migration and then re-executes 0006 exactly as the
+ * migrator would (split on `--> statement-breakpoint`). Executing it a SECOND
+ * time proves the file is idempotent — the standing convention for a
+ * migration a watching dev server might re-run. Fictional projects only.
+ */
+describe("0006_increment40_project — project_name / frozen project backfill", () => {
+  const MIGRATION_0006 = join(MIGRATIONS_FOLDER, "0006_increment40_project.sql");
+
+  async function run0006(raw: DbHandle["raw"]): Promise<void> {
+    const statements = readFileSync(MIGRATION_0006, "utf8")
+      .split("--> statement-breakpoint")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    for (const stmt of statements) await rawQuery(raw, stmt);
+  }
+
+  const wpJson = (projectId: number | null, title: string | null): string =>
+    JSON.stringify({
+      _type: "WorkPackage",
+      _links: projectId === null ? {} : { project: { href: `/api/v3/projects/${projectId}`, title } },
+    });
+
+  interface ItemRow {
+    sprint_id: number;
+    wp_op_id: number;
+    frozen_project_op_id: number | null;
+    frozen_project_name: string | null;
+    frozen_project_identifier: string | null;
+  }
+
+  it("adds the four columns (nullable text)", async () => {
+    const handle = await openDb({ ephemeral: true });
+    try {
+      const cols = await rawQuery<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>(
+        handle.raw,
+        `SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND column_name IN ('project_name', 'frozen_project_name', 'frozen_project_identifier')
+            AND table_name IN ('work_package_cache', 'work_package_cache_staging', 'sprint_item')
+          ORDER BY table_name, column_name`,
+      );
+      expect(cols.map((c) => `${c.table_name}.${c.column_name}:${c.data_type}:${c.is_nullable}`)).toEqual([
+        "sprint_item.frozen_project_identifier:text:YES",
+        "sprint_item.frozen_project_name:text:YES",
+        "work_package_cache.project_name:text:YES",
+        "work_package_cache_staging.project_name:text:YES",
+      ]);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it("backfills cache names and frozen snapshots (cache / baseline-only / ambiguous), and re-runs as a no-op", async () => {
+    const handle = await openDb({ ephemeral: true });
+    const { raw, repositories: r } = handle;
+    try {
+      const connA = await r.connections.create({
+        base_url: "https://op-a.example.test",
+        label: "A",
+        token_ct: null,
+        token_nonce: null,
+        token_tag: null,
+        default_project_op_id: null,
+      });
+      const connB = await r.connections.create({
+        base_url: "https://op-b.example.test",
+        label: "B",
+        token_ct: null,
+        token_nonce: null,
+        token_tag: null,
+        default_project_op_id: null,
+      });
+      // op_id 11 exists on BOTH servers (different projects) → ambiguous
+      // without a connection; op_id 12 exists once → unambiguous.
+      await r.projects.upsertMany([
+        { connection_id: connA.id, op_id: 11, identifier: "northwind", name: "Northwind Payments", last_synced_at: null },
+        { connection_id: connB.id, op_id: 11, identifier: "lighthouse", name: "Lighthouse" , last_synced_at: null },
+        { connection_id: connA.id, op_id: 12, identifier: "harbor-ops", name: "Harbor Ops", last_synced_at: null },
+      ]);
+
+      const cache = async (opId: number, projectOpId: number, json: string) =>
+        rawQuery(
+          raw,
+          `INSERT INTO work_package_cache (op_id, project_op_id, subject, type_name, status_name,
+             status_is_closed, updated_at_op, raw_json, project_name)
+           VALUES ($1, $2, 'S', 'Task', 'New', false, now(), $3::jsonb, NULL)`,
+          [opId, projectOpId, json],
+        );
+      await cache(1001, 11, wpJson(11, "Northwind Payments"));
+      await cache(1003, 11, wpJson(11, "Northwind Payments"));
+      // Moved to project 11 AFTER the freeze recorded project 12.
+      await cache(1005, 11, wpJson(11, "Northwind Payments"));
+      // No project link at all → stays NULL.
+      await cache(1008, 0, wpJson(null, null));
+
+      const [frozen] = await rawQuery<{ id: number }>(
+        raw,
+        `INSERT INTO sprint (name, start_date, end_date, status, frozen_at)
+         VALUES ('Frozen', '2026-06-01', '2026-06-14', 'closed', now()) RETURNING id`,
+      );
+      const [live] = await rawQuery<{ id: number }>(
+        raw,
+        `INSERT INTO sprint (name, start_date, end_date, status)
+         VALUES ('Live', '2026-06-15', '2026-06-28', 'active') RETURNING id`,
+      );
+      const item = async (
+        sprintId: number,
+        wpOpId: number,
+        opts: { outcome?: string; conn?: number | null; pid?: number | null; name?: string | null } = {},
+      ) =>
+        rawQuery(
+          raw,
+          `INSERT INTO sprint_item (sprint_id, wp_op_id, outcome, origin, frozen_connection_id,
+             frozen_project_op_id, frozen_project_name)
+           VALUES ($1, $2, $3, 'baseline', $4, $5, $6)`,
+          [sprintId, wpOpId, opts.outcome ?? "done", opts.conn ?? null, opts.pid ?? null, opts.name ?? null],
+        );
+      const baseline = async (sprintId: number, wpOpId: number, json: string) =>
+        rawQuery(
+          raw,
+          `INSERT INTO ticket_baseline (sprint_id, wp_op_id, subject, status_name, status_is_closed, raw_json)
+           VALUES ($1, $2, 'S', 'New', false, $3::jsonb)`,
+          [sprintId, wpOpId, json],
+        );
+
+      // (a) cache row, connection known.
+      await item(frozen!.id, 1001, { conn: connA.id });
+      // (b) baseline-only (no cache row), connection-less, op_id 12 unique.
+      await item(frozen!.id, 1002, { conn: null });
+      await baseline(frozen!.id, 1002, wpJson(12, "Harbor Ops"));
+      // (c) cache row, connection-less, op_id 11 ambiguous → identifier NULL.
+      await item(frozen!.id, 1003, { conn: null });
+      // (d) removed → never touched.
+      await item(frozen!.id, 1004, { outcome: "removed", conn: connA.id });
+      await baseline(frozen!.id, 1004, wpJson(12, "Harbor Ops"));
+      // (e) frozen op_id 12 already recorded, cache moved to 11 → name from
+      //     the baseline (matching op_id), never the cache's new project.
+      await item(frozen!.id, 1005, { conn: connA.id, pid: 12 });
+      await baseline(frozen!.id, 1005, wpJson(12, "Harbor Ops"));
+      // (f) nothing to resolve from → all NULL.
+      await item(frozen!.id, 1006, { conn: connA.id });
+      // (g) already snapshotted → untouched.
+      await item(frozen!.id, 1007, { conn: connA.id, pid: 99, name: "Keep Me" });
+      // Not frozen → frozen_* columns never touched.
+      await item(live!.id, 1001, { conn: connA.id });
+
+      await run0006(raw);
+
+      const cacheRows = await rawQuery<{ op_id: number; project_name: string | null }>(
+        raw,
+        `SELECT op_id, project_name FROM work_package_cache ORDER BY op_id`,
+      );
+      expect(cacheRows).toEqual([
+        { op_id: 1001, project_name: "Northwind Payments" },
+        { op_id: 1003, project_name: "Northwind Payments" },
+        { op_id: 1005, project_name: "Northwind Payments" },
+        { op_id: 1008, project_name: null },
+      ]);
+
+      const readItems = () =>
+        rawQuery<ItemRow>(
+          raw,
+          `SELECT sprint_id, wp_op_id, frozen_project_op_id, frozen_project_name, frozen_project_identifier
+             FROM sprint_item ORDER BY sprint_id, wp_op_id`,
+        );
+      const items = await readItems();
+      const byKey = (sprintId: number, wpOpId: number) =>
+        items.find((i) => i.sprint_id === sprintId && i.wp_op_id === wpOpId);
+      const f = frozen!.id;
+      expect(byKey(f, 1001)).toMatchObject({
+        frozen_project_op_id: 11,
+        frozen_project_name: "Northwind Payments",
+        frozen_project_identifier: "northwind",
+      });
+      expect(byKey(f, 1002)).toMatchObject({
+        frozen_project_op_id: 12,
+        frozen_project_name: "Harbor Ops",
+        frozen_project_identifier: "harbor-ops",
+      });
+      expect(byKey(f, 1003)).toMatchObject({
+        frozen_project_op_id: 11,
+        frozen_project_name: "Northwind Payments",
+        frozen_project_identifier: null,
+      });
+      expect(byKey(f, 1004)).toMatchObject({
+        frozen_project_op_id: null,
+        frozen_project_name: null,
+        frozen_project_identifier: null,
+      });
+      expect(byKey(f, 1005)).toMatchObject({
+        frozen_project_op_id: 12,
+        frozen_project_name: "Harbor Ops",
+        frozen_project_identifier: "harbor-ops",
+      });
+      expect(byKey(f, 1006)).toMatchObject({
+        frozen_project_op_id: null,
+        frozen_project_name: null,
+        frozen_project_identifier: null,
+      });
+      expect(byKey(f, 1007)).toMatchObject({
+        frozen_project_op_id: 99,
+        frozen_project_name: "Keep Me",
+        frozen_project_identifier: null,
+      });
+      expect(byKey(live!.id, 1001)).toMatchObject({
+        frozen_project_op_id: null,
+        frozen_project_name: null,
+        frozen_project_identifier: null,
+      });
+
+      // Idempotent re-run: byte-identical results.
+      await run0006(raw);
+      expect(await readItems()).toEqual(items);
+      expect(
+        await rawQuery(raw, `SELECT op_id, project_name FROM work_package_cache ORDER BY op_id`),
+      ).toEqual(cacheRows);
     } finally {
       await handle.close();
     }

@@ -25,6 +25,14 @@ import {
   parseOpId,
   withHardCancel,
 } from "@osp/op-client";
+import { refreshProjects } from "./projects";
+
+export {
+  refreshProjects,
+  type RefreshProjectsDeps,
+  type RefreshProjectsOptions,
+  type RefreshProjectsResult,
+} from "./projects";
 
 /**
  * @osp/sync — sync engine + burndown snapshot writer (SPEC §5–6).
@@ -141,8 +149,14 @@ export interface SyncEngine {
   /**
    * Fetch ONE work package by its OP id (a GET id-filter query) and cache it.
    * Returns the cached row, or null if OP has no such work package. Read-only.
+   *
+   * Increment 40: pass `connectionId` (optional, back-compatible) and the row
+   * is written WITH that connection stamped, and its project row is refreshed
+   * via `refreshProjects` (best-effort). Omitted/null keeps the old behaviour:
+   * a connection-less write, no project refresh — the caller stamps post-hoc
+   * and calls `refreshProjects` itself.
    */
-  importWorkPackage(opId: OpId): Promise<WorkPackageCache | null>;
+  importWorkPackage(opId: OpId, connectionId?: number | null): Promise<WorkPackageCache | null>;
   /** Fetch + map ONE work package into a cache row WITHOUT writing it — lets a
    * caller buffer several of these and upsert them together (or discard them
    * entirely on cancellation), same rollback contract as sync(). Increment 23
@@ -303,6 +317,9 @@ export function toWorkPackageCacheRow(
     connection_id: connectionId,
     op_id: wp.id,
     project_op_id: parseOpId(wp._links.project?.href ?? null) ?? 0,
+    // Increment 40 (INCREMENT_40_CONTRACTS §1.1): display-only, straight from
+    // the payload — available even when /projects/{id} is hidden (404).
+    project_name: wp._links.project?.title ?? null,
     subject: wp.subject,
     type_name: wp._links.type?.title ?? "",
     status_name: wp._links.status?.title ?? status?.name ?? "",
@@ -530,12 +547,28 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
         // work_package_cache is written).
         await deps.workPackages.commitStaging(run.id);
 
-        // Record project last-synced marker (best-effort; project may be absent).
+        // Increment 40 (INCREMENT_40_CONTRACTS §2.A3) — refresh the project
+        // rows (identifier/name) for every project this run touched: the
+        // synced project itself plus any other project its WPs report (a
+        // subproject's tickets can surface in a parent's query). Best-effort
+        // and never throws; a no-op without a connection (pillar 2). Goes
+        // through the run's hard-cancel-aware `op`.
+        await refreshProjects(
+          op,
+          deps,
+          connectionId,
+          [
+            projectOpId,
+            ...wps.map((wp) => parseOpId(wp._links.project?.href ?? null) ?? 0),
+          ],
+          { signal: controller.signal },
+        );
+
+        // Record project last-synced marker — connection-scoped (Increment
+        // 40): a bare op_id would stamp every server's project sharing the
+        // numeric id. A missing row is a no-op.
         const now = new Date().toISOString();
-        const project = await deps.projects.getByOpId(projectOpId);
-        if (project !== null) {
-          await deps.projects.setLastSyncedAt(projectOpId, now);
-        }
+        await deps.projects.setLastSyncedAt(connectionId, projectOpId, now);
 
         // Drift reconciliation (SPEC §6) — needs the full present set + sprints.
         // Skip for version-scoped syncs: they only see one version's WPs, so a
@@ -753,10 +786,17 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
       return fetchWorkPackageRow(op, opId);
     },
 
-    async importWorkPackage(opId: OpId): Promise<WorkPackageCache | null> {
+    async importWorkPackage(
+      opId: OpId,
+      connectionId: number | null = null,
+    ): Promise<WorkPackageCache | null> {
       const row = await fetchWorkPackageRow(opTimed, opId);
       if (row === null) return null;
-      await deps.workPackages.upsertMany([row]);
+      await deps.workPackages.upsertMany([
+        connectionId === null ? row : { ...row, connection_id: connectionId },
+      ]);
+      // Increment 40 — best-effort, never throws; no-op without a connection.
+      await refreshProjects(opTimed, deps, connectionId, [row.project_op_id]);
       return deps.workPackages.getByOpId(opId);
     },
   };

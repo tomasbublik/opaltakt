@@ -30,6 +30,7 @@ async function seedSprint(
       connection_id: null,
       op_id: 9701,
       project_op_id: 100,
+      project_name: null,
       subject: "Status PDF ticket",
       type_name: "Task",
       status_name: "In progress",

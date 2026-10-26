@@ -13,7 +13,14 @@ import {
   type Scenario,
   type WorkPackageSeed,
 } from "../scenario-types";
-import { scenarios, s4VolatileSprint } from "./index";
+import {
+  scenarios,
+  s4VolatileSprint,
+  S22_PROJECTS,
+  S22_SERVER2_PROJECT,
+  S22_SERVER2_WP,
+  S22_WP,
+} from "./index";
 
 // ── Replay: fold the timeline over the seed (contract semantics) ─────────────
 
@@ -111,7 +118,7 @@ function validateWpSeed(
 // ── Cross-scenario invariants ────────────────────────────────────────────────
 
 describe("scenario registry", () => {
-  it("exports all twenty-one scenarios (S1-S6 + S7 comment roundtrip + S8 retro scope churn + S9 role closure + S10 developer work attribution + S11 effective estimate + S12 handoff attribution + S13 sprint list dimming + S14 backlog filter matrix + S15 status casing divergence + S16/S17 assignee identity collision + S18 nightly AU retroactive add + S19/S20 sync coverage + S21 Increment-30 current-scope Planned) with unique, URL-safe names", () => {
+  it("exports all twenty-three scenarios (S1-S6 + S7 comment roundtrip + S8 retro scope churn + S9 role closure + S10 developer work attribution + S11 effective estimate + S12 handoff attribution + S13 sprint list dimming + S14 backlog filter matrix + S15 status casing divergence + S16/S17 assignee identity collision + S18 nightly AU retroactive add + S19/S20 sync coverage + S21 Increment-30 current-scope Planned + S22 Increment-40 multi-project pair) with unique, URL-safe names", () => {
     expect(scenarios.map((s) => s.name)).toEqual([
       "s1-accountable-handoff",
       "s2-status-spectrum",
@@ -134,6 +141,8 @@ describe("scenario registry", () => {
       "s19-sync-coverage",
       "s20-sync-coverage-orphaned",
       "s21-inc30-current-scope-planned",
+      "s22-multi-project",
+      "s22-multi-project-server2",
     ]);
     for (const s of scenarios) expect(s.name).toMatch(/^[a-z0-9][a-z0-9-]*$/);
     expect(new Set(scenarios.map((s) => s.name)).size).toBe(scenarios.length);
@@ -888,5 +897,48 @@ describe("S21 inc30-current-scope-planned invariants (INCREMENT_30_CONTRACTS §2
       .flatMap((d) => d.events)
       .filter((e) => e.t === "logTime" && e.wp === "added-held-unworked");
     expect(idle, "#86007 must never be logged on (it is the `idle` leg)").toHaveLength(0);
+  });
+});
+
+describe("S22 multi-project pair invariants (INCREMENT_40_CONTRACTS §2 Agent D)", () => {
+  const s22 = scenarios.find((s) => s.name === "s22-multi-project")!;
+  const s22b = scenarios.find((s) => s.name === "s22-multi-project-server2")!;
+
+  it("server one spans the two fictional visible projects northwind + harbor-ops, each with ≥2 work packages", () => {
+    const visible = (s22.seed.projects ?? []).filter((p) => p.hidden !== true);
+    expect(visible.map((p) => [p.id, p.identifier, p.name])).toEqual([
+      [8700, "northwind", "Northwind Payments"],
+      [8701, "harbor-ops", "Harbor Ops"],
+    ]);
+    for (const p of visible) {
+      expect(s22.seed.workPackages.filter((w) => w.project === p.id).length, p.identifier).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("has exactly one HIDDEN project that still owns at least one visible work package", () => {
+    const hidden = (s22.seed.projects ?? []).filter((p) => p.hidden === true);
+    expect(hidden.map((p) => p.id)).toEqual([S22_PROJECTS.hidden.id]);
+    expect(s22.seed.workPackages.find((w) => w.id === S22_WP.hiddenAuthBump)?.project).toBe(S22_PROJECTS.hidden.id);
+  });
+
+  it("server two reuses project op_id 8700 for a DIFFERENT project (name AND identifier differ)", () => {
+    const p = s22b.seed.projects ?? [];
+    expect(p).toHaveLength(1);
+    expect(p[0]!.id).toBe(S22_PROJECTS.northwind.id);
+    expect(p[0]!.name).toBe(S22_SERVER2_PROJECT.name);
+    expect(p[0]!.name).not.toBe(S22_PROJECTS.northwind.name);
+    expect(p[0]!.identifier).not.toBe(S22_PROJECTS.northwind.identifier);
+    expect(s22b.seed.workPackages.every((w) => w.project === S22_PROJECTS.northwind.id)).toBe(true);
+  });
+
+  it("the two halves' work-package ids are disjoint (work_package_cache keys op_id globally) and fresh", () => {
+    const one = new Set(s22.seed.workPackages.map((w) => w.id));
+    const two = s22b.seed.workPackages.map((w) => w.id);
+    expect(two).toEqual([S22_SERVER2_WP.nlRouteOptimiser, S22_SERVER2_WP.nlDockManifest]);
+    for (const id of two) expect(one.has(id)).toBe(false);
+    const others = scenarios
+      .filter((s) => s !== s22 && s !== s22b)
+      .flatMap((s) => s.seed.workPackages.map((w) => w.id));
+    for (const id of [...one, ...two]) expect(others).not.toContain(id);
   });
 });

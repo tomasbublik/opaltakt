@@ -43,6 +43,13 @@
       "when": 1787200000000,
       "tag": "0005_increment34_multisprint",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787300000000,
+      "tag": "0006_increment40_project",
+      "breakpoints": true
     }
   ]
 }

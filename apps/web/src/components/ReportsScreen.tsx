@@ -213,6 +213,12 @@ function ReportDetail({
  * rejected/ambiguous pie. recharts is already a dependency (BurndownScreen) —
  * no new charting library added.
  */
+/** Increment 40 (R1): "Estimate vs. actual" tooltip label — `#<id> · <identifier>`
+ * when the project identifier is known, else `#<id>`. */
+export function estimateTooltipLabel(opId: number, identifier: string | null | undefined): string {
+  return identifier ? `#${opId} · ${identifier}` : `#${opId}`;
+}
+
 function ReportCharts({ stats, burndown }: { stats: ClosureStatsResponse; burndown: BurndownResponse }) {
   const bucketData = [
     { name: "Done", value: stats.done.count },
@@ -221,6 +227,9 @@ function ReportCharts({ stats, burndown }: { stats: ClosureStatsResponse; burndo
     { name: "Ambiguous", value: stats.ambiguous.count },
   ].filter((d) => d.value > 0);
   const doneTickets = stats.per_ticket.filter((t) => t.bucket === "done");
+  // Increment 40 (R1): tooltip label `#<id> · <identifier>` when known.
+  const identifierById = new Map(doneTickets.map((t) => [t.wp_op_id, t.project_identifier]));
+  const estimateChartLabel = (v: number): string => estimateTooltipLabel(v, identifierById.get(v));
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -266,7 +275,7 @@ function ReportCharts({ stats, burndown }: { stats: ClosureStatsResponse; burndo
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="wp_op_id" fontSize={11} tickFormatter={(v: number) => `#${v}`} />
                 <YAxis fontSize={11} tickFormatter={(v: number) => formatHours(v)} />
-                <Tooltip formatter={(value: number) => formatHours(value)} labelFormatter={(v: number) => `#${v}`} />
+                <Tooltip formatter={(value: number) => formatHours(value)} labelFormatter={(v: number) => estimateChartLabel(v)} />
                 <Legend />
                 <Bar dataKey="estimate_hours" name="Estimate" fill="#94a3b8" />
                 <Bar dataKey="dev_logged_hours" name="Dev logged" fill="#2563eb" />

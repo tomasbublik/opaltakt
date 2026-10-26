@@ -60,6 +60,7 @@ async function seedCache(
       connection_id: null,
       op_id: id,
       project_op_id: 100,
+      project_name: null,
       subject: `WP ${id}`,
       type_name: "Task",
       status_name: "In progress",

@@ -18,7 +18,7 @@ async function seedClosedSprint() {
   await r.sprintItems.add({ sprint_id: sprint.id, wp_op_id: 1, planned_hours: 8, outcome: "planned", origin: "baseline" });
   await r.workPackages.upsertMany([
     {
-      connection_id: null, op_id: 1, project_op_id: 100, subject: "A", type_name: "Task",
+      connection_id: null, op_id: 1, project_op_id: 100, project_name: null, subject: "A", type_name: "Task",
       status_name: "Tested", status_is_closed: true, assignee_op_id: 10, assignee_name: "Dev One",
       estimated_hours: 8, remaining_hours: null, spent_hours: null, story_points: null,
       version_op_id: null, version_name: null, priority: null, parent_op_id: null,
@@ -144,14 +144,14 @@ describe("reports — scope origin section (Increment 35 §3)", () => {
     });
     await r.workPackages.upsertMany([
       {
-        connection_id: null, op_id: 1, project_op_id: 100, subject: "Baseline ticket", type_name: "Task",
+        connection_id: null, op_id: 1, project_op_id: 100, project_name: null, subject: "Baseline ticket", type_name: "Task",
         status_name: "Tested", status_is_closed: true, assignee_op_id: 10, assignee_name: "Dev One",
         estimated_hours: 10, remaining_hours: null, spent_hours: null, story_points: null,
         version_op_id: null, version_name: null, priority: null, parent_op_id: null,
         percentage_done: null, updated_at_op: "2026-06-01T00:00:00Z", raw_json: "{}",
       },
       {
-        connection_id: null, op_id: 2, project_op_id: 100, subject: "Added ticket", type_name: "Task",
+        connection_id: null, op_id: 2, project_op_id: 100, project_name: null, subject: "Added ticket", type_name: "Task",
         status_name: "In progress", status_is_closed: false, assignee_op_id: 10, assignee_name: "Dev One",
         estimated_hours: 4, remaining_hours: null, spent_hours: null, story_points: null,
         version_op_id: null, version_name: null, priority: null, parent_op_id: null,

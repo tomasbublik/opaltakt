@@ -65,6 +65,7 @@ function wpCache(over: Partial<WorkPackageCache> & { op_id: number }): WorkPacka
     id: over.op_id,
     connection_id: null,
     project_op_id: 3,
+    project_name: null,
     subject: "wp",
     type_name: "Task",
     status_name: "New",
@@ -244,7 +245,7 @@ describe("createSyncEngine — pagination-driven upsert (SPEC §5)", () => {
     expect(wp1003.status_is_closed).toBe(true);
     expect(wp1003.remaining_hours).toBe(0);
 
-    expect(projects.lastSynced.get(3)).toBeTruthy();
+    expect(projects.lastSynced.get("none:3")).toBeTruthy();
   });
 
   it("records an error run when OP is unreachable", async () => {
@@ -1356,6 +1357,13 @@ function fakeFilterCapturingOp(captured: unknown[][]): OpClient {
   return {
     getStatuses: async () => emptyCollection(),
     getTimeEntries: async () => emptyCollection(),
+    // Increment 40: sync() with a connectionId refreshes the project row.
+    getProject: async (id: number) => ({
+      _type: "Project",
+      id,
+      identifier: `northwind-${id}`,
+      name: `Northwind ${id}`,
+    }),
     getWorkPackages: async (query: { filters?: unknown[] }) => {
       captured.push(query.filters ?? []);
       return {

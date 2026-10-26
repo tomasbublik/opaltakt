@@ -19,6 +19,7 @@ import {
   type OpClientConfig,
   type OpRequestOptions,
   type TimeEntriesQuery,
+  type ProjectsQuery,
   type UsersQuery,
   type WorkPackagesQuery,
 } from "./client";
@@ -200,8 +201,18 @@ export function createOpClient(config: OpClientConfig): OpClient {
       });
     },
 
-    getProjects(): Promise<HalCollection<OpProject>> {
-      return this.request<HalCollection<OpProject>>({ path: "/api/v3/projects" });
+    getProjects(query?: ProjectsQuery): Promise<HalCollection<OpProject>> {
+      const q: Record<string, number | undefined> = {};
+      if (query?.pageSize !== undefined) q["pageSize"] = query.pageSize;
+      if (query?.offset !== undefined) q["offset"] = query.offset;
+      return this.request<HalCollection<OpProject>>({
+        path: "/api/v3/projects",
+        query: q,
+      });
+    },
+
+    getProject(id: number): Promise<OpProject> {
+      return this.request<OpProject>({ path: `/api/v3/projects/${id}` });
     },
 
     getWorkPackages(

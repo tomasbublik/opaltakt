@@ -65,7 +65,8 @@ const IMMEDIATE = "Immediate"; // priority exclusive to v_mixed
 
 // ── minimal contract subsets ─────────────────────────────────────────────────
 interface FilterOptions {
-  projects: string[];
+  // Increment 40 (INCREMENT_40_CONTRACTS §3): keyed entries, was string[].
+  projects: { id: number; name: string; key: string }[];
   statuses: string[];
   assignees: { id: number; name: string }[];
   versions: { id: number; name: string }[];
@@ -326,7 +327,11 @@ test.describe.serial("TL — SPEC_19 backlog filters + abortable sync", () => {
 
     // Project facet (drop projectId, keep the connection scope) = both projects.
     const projConn = await filterOptions({});
-    expect(projConn.projects).toEqual(["OSP Filter Demo", "OSP Filter Demo B"]);
+    // Increment 40: keyed entries (`${connection_id}:${project_op_id}`), sorted by name.
+    expect(projConn.projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))).toEqual([
+      { id: PROJ_A, name: "OSP Filter Demo", key: `${myConnId}:${PROJ_A}` },
+      { id: PROJ_B, name: "OSP Filter Demo B", key: `${myConnId}:${PROJ_B}` },
+    ]);
     // Servers facet includes this connection.
     expect(projConn.servers.map((s) => s.id)).toContain(myConnId);
   });
@@ -427,7 +432,7 @@ test.describe.serial("TL — SPEC_19 backlog filters + abortable sync", () => {
     // full option set: all three versions and both projects reappear.
     const cleared = await filterOptions({});
     expect(cleared.versions.map((v) => v.id).sort((a, b) => a - b)).toEqual([V_ISO, V_MIXED, 4680]);
-    expect(cleared.projects).toEqual(["OSP Filter Demo", "OSP Filter Demo B"]);
+    expect(cleared.projects.map((p) => p.name)).toEqual(["OSP Filter Demo", "OSP Filter Demo B"]);
   });
 
   // ── §2: ABORT = ROLLBACK (full sync) ─────────────────────────────────────────

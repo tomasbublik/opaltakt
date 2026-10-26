@@ -104,6 +104,11 @@ export function makeFakeOpClient(data: FakeOpData = {}): OpClient {
     request: <T>() => Promise.resolve(undefined as T),
     getCurrentUser: () => Promise.resolve(user),
     getProjects: () => Promise.resolve(coll<OpProject>(projects)),
+    // Increment 40: GET /api/v3/projects/:id — unknown id rejects like OP's 404.
+    getProject: (id: number) => {
+      const p = projects.find((x) => x.id === id);
+      return p ? Promise.resolve(p) : Promise.reject(new Error(`404 project ${id}`));
+    },
     getWorkPackages: (query: WorkPackagesQuery) => {
       const wps = data.workPackages ?? [];
       // Honour a scoped `id = [...]` filter (what the sprint-update engine sends).
@@ -207,15 +212,18 @@ export function makeFakeSyncEngineFactory(repos: Repositories) {
       async sync(options): Promise<SyncRun> {
         const run = await repos.syncRuns.start(options.kind ?? "full");
         const at = new Date().toISOString();
+        // Increment 40: project rows are connection-scoped (op_id repeats
+        // across servers) — stamp the run's connection like the real engine.
         await repos.projects.upsertMany([
           {
+            connection_id: options.connectionId ?? null,
             op_id: options.projectOpId,
             identifier: `proj-${options.projectOpId}`,
             name: `Project ${options.projectOpId}`,
             last_synced_at: at,
           },
         ]);
-        await repos.projects.setLastSyncedAt(options.projectOpId, at);
+        await repos.projects.setLastSyncedAt(options.connectionId ?? null, options.projectOpId, at);
         return repos.syncRuns.finish(run.id, "success", 0, null, at);
       },
       // Increment 29 (CONTRACTS §2) — delegate to the REAL engine so the

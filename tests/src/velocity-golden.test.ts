@@ -48,6 +48,7 @@ async function seedClosedSprint(r: Repositories, raw: RealApp["raw"]): Promise<n
       connection_id: null,
       op_id: op,
       project_op_id: 100,
+      project_name: null,
       subject: `WP ${op}`,
       type_name: "Task",
       status_name: "Closed",

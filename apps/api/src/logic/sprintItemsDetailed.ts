@@ -5,6 +5,7 @@ import { effectiveEstimate } from "./estimate";
 import { ancestorDoubleCounts } from "./doubleCounting";
 import { buildMemberIndex, classifyWithRole, isDoneBucket, roleForHolder } from "./doneRole";
 import { computeSprintMembership, multiSprintBadge } from "./multiSprint";
+import { createProjectResolver } from "./projectRef";
 
 /**
  * Increment 36 (docs/INCREMENT_36_CONTRACTS.md §2; CAPACITY_BAR_RULES §6
@@ -109,7 +110,9 @@ export async function buildSprintItemsDetailed(
   const frozenByWp = new Map(frozenSnapshot.map((f) => [f.wp_op_id, f]));
   const ovById = new Map(overrides.map((o) => [o.wp_op_id, o]));
   const dismissed = new Set(dismissedIds);
-  const projectNameByOpId = new Map(projects.map((p) => [p.op_id, p.name]));
+  // Increment 40 (§2.B1): the ONE project resolver — connection-scoped keys,
+  // frozen snapshot for a frozen sprint (never the live cache/project row).
+  const projectResolver = createProjectResolver(projects);
   const connById = new Map(connections.map((c) => [c.id, c]));
   /** Prefer the frozen snapshot's value — ONLY when the sprint is actually
    * frozen and the snapshot itself has a non-null value (defensive
@@ -197,6 +200,20 @@ export async function buildSprintItemsDetailed(
     // Increment 31 (§2c): effective_hours is the estimate of record — for a
     // frozen sprint that's `frozen_effective_hours` directly, not a
     // recomputation off (possibly gone) live estimated/remaining hours.
+    // Increment 40 (§1.3): a frozen sprint's project is the freeze-time
+    // snapshot ONLY (invariant 10 extended); otherwise live cache row →
+    // activation baseline payload.
+    const project = projectResolver.resolve(
+      isSprintFrozen && frozen
+        ? {
+            frozen: {
+              op_id: frozen.frozen_project_op_id,
+              name: frozen.frozen_project_name,
+              identifier: frozen.frozen_project_identifier,
+            },
+          }
+        : { wp: wp ?? null, baselineRawJson: baseline?.raw_json ?? null, connectionId },
+    );
     const effectiveHours = preferFrozenItem(
       frozen?.frozen_effective_hours,
       effectiveEstimate(estimatedHours, remainingHours, override),
@@ -227,7 +244,8 @@ export async function buildSprintItemsDetailed(
       updated_at_op: wp?.updated_at_op ?? baseline?.captured_at ?? sprint.created_at,
       raw_json: wp?.raw_json ?? baseline?.raw_json ?? "{}",
       cached_at: wp?.cached_at ?? baseline?.captured_at ?? sprint.created_at,
-      project_name: wp ? (projectNameByOpId.get(wp.project_op_id) ?? null) : null,
+      project_name: project.name,
+      project_identifier: project.identifier,
       override_hours: override,
       effective_hours: effectiveHours,
       in_sprint: true,

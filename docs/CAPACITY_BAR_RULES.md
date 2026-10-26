@@ -308,7 +308,10 @@ table can badge added rows); it feeds no other number (invariant 13).
     `frozen_at != null`, Planned / Baseline / ±Change / Delivered / Logged, the per-ticket
     lines and the segments are IDENTICAL before and after any mutation **or deletion** of its
     `work_package_cache` rows. A test MUST fail if any read path still consults the live cache
-    for a frozen sprint.
+    for a frozen sprint. *(Increment 40)* The same holds for the descriptive project fields
+    (`project_op_id`, `project_name`, `project_identifier`) on every frozen-sprint surface:
+    identical before/after any cache mutation or deletion AND any change or deletion of the
+    `project` row — they come from `sprint_item.frozen_project_*` only.
 11. *(Increment 34)* **Delivered = burned remaining, uniformly.** A ticket begun AND finished
     within one sprint delivers exactly its estimate of record (the reduction to the previous
     rule MUST hold byte-for-byte); a ticket spanning sprints delivers per sprint exactly the

@@ -148,6 +148,11 @@ export interface FrozenSprintItemFields {
    * `frozen_effective_hours` (the resolved bar-length estimate). Feeds §1's
    * `remEnd` for a frozen sprint. */
   frozen_remaining_hours: number | null;
+  /** Increment 40 (INCREMENT_40_CONTRACTS §1.3) — project display name and
+   * identifier AT FREEZE TIME (display-only; `frozen_project_op_id` stays the
+   * identity). Null when unresolvable — renders `—`. */
+  frozen_project_name: string | null;
+  frozen_project_identifier: string | null;
 }
 
 /** One row of a written/read freeze snapshot — the sprint_item id plus its
@@ -261,16 +266,30 @@ export interface VaultMetaRepository {
   delete(): Promise<void>;
 }
 
+/** Increment 40 — one `(connection_id, op_id)` project key. `connection_id`
+ * null addresses the legacy connection-less rows (`none:<id>`) only. */
+export interface ProjectKeyPair {
+  connection_id: number | null;
+  op_id: OpId;
+}
+
 export interface ProjectRepository {
   list(): Promise<Project[]>;
-  /** Best-effort global lookup (display purposes only) — op_id is unique only
-   * WITHIN a connection, so this may pick an arbitrary match when two servers
-   * share a numeric project id. Use getByConnectionAndOpId when the caller
-   * knows which server it means. */
+  /** ⚠️ COLLISION-UNSAFE legacy lookup — op_id is unique only WITHIN a
+   * connection, so this picks an arbitrary match when two servers share a
+   * numeric project id. Kept ONLY for callers that genuinely have no
+   * connection; everything else uses getByConnectionAndOpId(s)
+   * (INCREMENT_40_CONTRACTS §0 pillar 2). */
   getByOpId(opId: OpId): Promise<Project | null>;
   getByConnectionAndOpId(connectionId: number, opId: OpId): Promise<Project | null>;
+  /** Increment 40 — batch exact-key lookup. Returns only rows that exist
+   * (order by id, NOT by input); a null `connection_id` matches only rows
+   * whose connection_id IS NULL. Empty input → []. */
+  getByConnectionAndOpIds(pairs: ReadonlyArray<ProjectKeyPair>): Promise<Project[]>;
   upsertMany(rows: NewProject[]): Promise<void>;
-  setLastSyncedAt(opId: OpId, at: string): Promise<void>;
+  /** Increment 40 — connection-scoped: stamps only the `(connectionId, opId)`
+   * row (null → the legacy connection-less row). A missing row is a no-op. */
+  setLastSyncedAt(connectionId: number | null, opId: OpId, at: string): Promise<void>;
 }
 
 export interface ImportSelectionRepository {

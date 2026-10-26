@@ -181,6 +181,7 @@ function seedWp(op_id: number, connection_id: number | null, o: Partial<NewWorkP
     connection_id,
     op_id,
     project_op_id: 100,
+    project_name: null,
     subject: `WP ${op_id}`,
     type_name: "Task",
     status_name: "In progress",

@@ -123,6 +123,9 @@ export const WorkPackageCache = z.object({
   connection_id: LocalId.nullable(),
   op_id: OpId,
   project_op_id: OpId,
+  /** Increment 40 (INCREMENT_40_CONTRACTS §3): raw `_links.project.title` at
+   * the last fetch — display-only, never a join key. Null when OP sent none. */
+  project_name: z.string().nullable(),
   subject: z.string(),
   type_name: z.string(),
   status_name: z.string(),

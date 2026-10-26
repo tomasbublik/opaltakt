@@ -145,6 +145,7 @@ export function mapWorkPackage(r: WorkPackageRow): WorkPackageCache {
     connection_id: r.connectionId,
     op_id: r.opId,
     project_op_id: r.projectOpId,
+    project_name: r.projectName,
     subject: r.subject,
     type_name: r.typeName,
     status_name: r.statusName,
@@ -364,6 +365,8 @@ export function mapFrozenSprintItemSnapshot(r: SprintItemRow): FrozenSprintItemS
     frozen_connection_id: r.frozenConnectionId,
     frozen_project_op_id: r.frozenProjectOpId,
     frozen_remaining_hours: r.frozenRemainingHours,
+    frozen_project_name: r.frozenProjectName,
+    frozen_project_identifier: r.frozenProjectIdentifier,
   };
 }
 

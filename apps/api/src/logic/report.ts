@@ -13,6 +13,7 @@ import type {
 import type { Repositories } from "@osp/db";
 import { buildBurndown } from "./burndown";
 import { computeClosureStats } from "./closureStats";
+import { PDF_PROJECT_CSS, planPdfProjects, type PdfProjectRow } from "./pdfProjects";
 
 /**
  * Increment 14 (SPEC_14 §4) — Reports (closed sprints) + management PDF.
@@ -263,6 +264,20 @@ function doneRatioSvg(stats: ClosureStatsResponse): string {
 
 export function renderReportHtml(detail: ReportDetailResponse): string {
   const { sprint, stats, burndown } = detail;
+  // Increment 40 (§2.B4): the per-ticket "Project" column / single-project
+  // sub-header. TicketEstimateLine carries no connection_id, so the key is the
+  // project op_id plus its display pair — conservative in the SPLITTING
+  // direction only (two servers' same-id projects with different names stay
+  // two projects; nothing is ever merged on a name alone).
+  const projectRow = (t: ClosureStatsResponse["per_ticket"][number]): PdfProjectRow => ({
+    key:
+      t.project_op_id != null
+        ? `${t.project_op_id}|${t.project_identifier ?? ""}|${t.project_name ?? ""}`
+        : null,
+    name: t.project_name,
+    identifier: t.project_identifier,
+  });
+  const projects = planPdfProjects(stats.per_ticket.map(projectRow), esc);
   return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"/>
 <title>OpalTakt — Report — ${esc(sprint.name)}</title>
 <style>
@@ -278,12 +293,13 @@ export function renderReportHtml(detail: ReportDetailResponse): string {
   .bar{display:inline-block;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle;}
   .bar.plan{background:#94a3b8;} .bar.log{background:#2563eb;}
   .legend span{margin-right:4px;} .flag{color:#dc2626;font-weight:600;}
+  ${PDF_PROJECT_CSS}
 </style></head><body>
   <p class="brand">OpalTakt · Sprint report</p>
   <h1>${esc(sprint.name)}</h1>
   <p class="sub">${formatDateGb(sprint.start_date)} – ${formatDateGb(sprint.end_date)}${
     sprint.closed_at ? ` · closed ${formatDateGb(sprint.closed_at)}` : ""
-  }</p>
+  }${projects.headerHtml ? ` · ${projects.headerHtml}` : ""}</p>
   <div class="kpis">
     <div class="kpi"><div class="v">${h1(stats.total_planned_hours)} h</div><div class="l">Planned</div></div>
     <div class="kpi"><div class="v">${h1(stats.total_baseline_hours)} h</div><div class="l">Baseline</div></div>
@@ -300,10 +316,10 @@ export function renderReportHtml(detail: ReportDetailResponse): string {
   <h2>Breakdown per developer</h2>
   ${devBarSvg(stats)}
   <h2>Per ticket</h2>
-  <table><thead><tr><th>#</th><th>Subject</th><th>Sprint</th><th>Bucket</th><th>Estimate</th><th>Dev logged</th><th>Total logged</th><th>Delta</th></tr></thead><tbody>
+  <table><thead><tr><th>#</th>${projects.thHtml}<th>Subject</th><th>Sprint</th><th>Bucket</th><th>Estimate</th><th>Dev logged</th><th>Total logged</th><th>Delta</th></tr></thead><tbody>
   ${stats.per_ticket
     .map(
-      (t) => `<tr><td>${t.wp_op_id}</td><td>${esc(t.subject)}</td><td>${
+      (t) => `<tr><td>${t.wp_op_id}</td>${projects.tdHtml(projectRow(t))}<td>${esc(t.subject)}</td><td>${
         // Increment 34 (docs/INCREMENT_34_CONTRACTS.md §3) — the "sprint 2/3"
         // multi-sprint badge; single-sprint tickets (the vast majority) show
         // an em dash, unchanged from before this increment.
@@ -317,6 +333,7 @@ export function renderReportHtml(detail: ReportDetailResponse): string {
     )
     .join("")}
   </tbody></table>
+  ${projects.legendHtml}
   ${
     stats.anomalies.length > 0
       ? `<h2>Anomalies</h2><ul>${stats.anomalies

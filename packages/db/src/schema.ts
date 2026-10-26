@@ -110,6 +110,9 @@ export const workPackageCache = pgTable(
     connectionId: integer("connection_id").references(() => opConnection.id),
     opId: integer("op_id").notNull(),
     projectOpId: integer("project_op_id").notNull(),
+    // Increment 40 (INCREMENT_40_CONTRACTS §1.1): raw `_links.project.title`
+    // at the last fetch — display-only, never a join key.
+    projectName: text("project_name"),
     subject: text("subject").notNull(),
     typeName: text("type_name").notNull(),
     statusName: text("status_name").notNull(),
@@ -165,6 +168,9 @@ export const workPackageCacheStaging = pgTable(
     connectionId: integer("connection_id").references(() => opConnection.id),
     opId: integer("op_id").notNull(),
     projectOpId: integer("project_op_id").notNull(),
+    // Increment 40 (INCREMENT_40_CONTRACTS §1.1): raw `_links.project.title`
+    // at the last fetch — display-only, never a join key.
+    projectName: text("project_name"),
     subject: text("subject").notNull(),
     typeName: text("type_name").notNull(),
     statusName: text("status_name").notNull(),
@@ -299,6 +305,12 @@ export const sprintItem = pgTable(
     // Feeds the §1 "Delivered = burned remaining" `remEnd` for a frozen
     // sprint (CAPACITY_BAR_RULES §6 invariant 10 composed with invariant 11).
     frozenRemainingHours: doublePrecision("frozen_remaining_hours"),
+    // Increment 40 (INCREMENT_40_CONTRACTS §1.3) — the project's display name
+    // and identifier AT FREEZE TIME, so a frozen sprint keeps showing the name
+    // it had even after a rename in OP or deletion of the cache/project row
+    // (CAPACITY_BAR_RULES §6 invariant 10, extended).
+    frozenProjectName: text("frozen_project_name"),
+    frozenProjectIdentifier: text("frozen_project_identifier"),
   },
   (t) => [
     index("sprint_item_sprint_idx").on(t.sprintId),

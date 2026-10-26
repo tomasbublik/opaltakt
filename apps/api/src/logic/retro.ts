@@ -33,6 +33,7 @@ import {
   unregisterSprintUpdateController,
 } from "@osp/sync";
 import { AppError } from "../errors";
+import { refreshProjectsBestEffort } from "./projectRefresh";
 import { runFinishStatus, withRunCancelSignal } from "./sprintUpdate";
 import { buildBurndown } from "./burndown";
 import { performClosure } from "./closure";
@@ -375,6 +376,8 @@ export function createRetroService(deps: RetroDeps): RetroService {
             toWorkPackageCacheRow(wp, statusById, agg.byWorkPackage.get(wp.id) ?? null, part.connectionId),
           ),
         );
+        // Increment 40 (§2.A3): best-effort project identifier/name refresh.
+        await refreshProjectsBestEffort(part.op, repos, part.connectionId, projectOpIdsOf(wps));
       }
       for (const [day, hours] of agg.byDay) {
         loggedByDay.set(day, (loggedByDay.get(day) ?? 0) + hours);
@@ -645,6 +648,16 @@ export function createRetroService(deps: RetroDeps): RetroService {
       }
     }
     if (baselineRows.length > 0) await repos.ticketBaselines.upsertMany(baselineRows);
+    // Increment 40 (§2.A3): refresh the touched projects' identifier/name —
+    // best-effort, never fails the seed.
+    if (args.persist && args.candidates.length > 0) {
+      await refreshProjectsBestEffort(
+        args.op,
+        repos,
+        args.connectionId,
+        projectOpIdsOf(args.candidates),
+      );
+    }
     return out;
   }
 
@@ -785,6 +798,8 @@ export function createRetroService(deps: RetroDeps): RetroService {
       await repos.workPackages.upsertMany([
         toWorkPackageCacheRow(wp, statusById, null, connectionId),
       ]);
+      // Increment 40 (§2.A3): best-effort project identifier/name refresh.
+      await refreshProjectsBestEffort(op, repos, connectionId, projectOpIdsOf([wp]));
       const activities = (await fetchActivitiesByWpIds(op, [wpOpId])).get(wpOpId) ?? [];
       const state = reconstruct.stateAtDate(
         activities,

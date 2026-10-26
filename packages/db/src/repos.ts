@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type {
   BurndownSnapshot,
@@ -67,6 +67,7 @@ import type {
   NewWorkPackageCache,
   OffSprintTimeEntry,
   OffSprintTimeRepository,
+  ProjectKeyPair,
   ProjectRepository,
   RemainingStatusRuleRepository,
   SprintItemRepository,
@@ -162,6 +163,7 @@ function wpCacheValues(r: NewWorkPackageCache, cachedAt: string) {
     connectionId: r.connection_id,
     opId: r.op_id,
     projectOpId: r.project_op_id,
+    projectName: r.project_name ?? null,
     subject: r.subject,
     typeName: r.type_name,
     statusName: r.status_name,
@@ -451,11 +453,43 @@ function projectRepository(db: OspDatabase): ProjectRepository {
           });
       }
     },
-    async setLastSyncedAt(opId: OpId, at: string): Promise<void> {
+    async getByConnectionAndOpIds(
+      pairs: ReadonlyArray<ProjectKeyPair>,
+    ): Promise<Project[]> {
+      if (pairs.length === 0) return [];
+      // Increment 40 (INCREMENT_40_CONTRACTS §0 pillar 2): exact
+      // (connection_id, op_id) matches only — a legacy null connection matches
+      // ONLY rows whose connection_id IS NULL, never "any server".
+      const conds = pairs.map((p) =>
+        p.connection_id === null
+          ? and(isNull(project.connectionId), eq(project.opId, p.op_id))!
+          : and(eq(project.connectionId, p.connection_id), eq(project.opId, p.op_id))!,
+      );
+      const rows = await db
+        .select()
+        .from(project)
+        .where(or(...conds))
+        .orderBy(project.id);
+      return rows.map(mapProject);
+    },
+    async setLastSyncedAt(
+      connectionId: number | null,
+      opId: OpId,
+      at: string,
+    ): Promise<void> {
+      // Increment 40: connection-scoped — before, a bare op_id match stamped
+      // EVERY server's project that happened to share the numeric id.
       await db
         .update(project)
         .set({ lastSyncedAt: at })
-        .where(eq(project.opId, opId));
+        .where(
+          and(
+            connectionId === null
+              ? isNull(project.connectionId)
+              : eq(project.connectionId, connectionId),
+            eq(project.opId, opId),
+          ),
+        );
     },
   };
 }
@@ -655,7 +689,16 @@ function workPackageCacheRepository(
       await db
         .update(workPackageCache)
         .set({ connectionId })
-        .where(eq(workPackageCache.projectOpId, projectOpId));
+        // Increment 40: a project op_id is only unique WITHIN a server — never
+        // re-stamp another connection's tickets that share it (the S22
+        // cross-server golden caught server 2's import stealing server 1's
+        // rows). Only unstamped rows or this connection's own rows.
+        .where(
+          and(
+            eq(workPackageCache.projectOpId, projectOpId),
+            or(isNull(workPackageCache.connectionId), eq(workPackageCache.connectionId, connectionId)),
+          ),
+        );
     },
     async setConnectionIdForOpIds(opIds: OpId[], connectionId: number): Promise<void> {
       if (opIds.length === 0) return;
@@ -698,6 +741,7 @@ function workPackageCacheRepository(
       const conflictSet = {
         connectionId: sql`excluded.connection_id`,
         projectOpId: sql`excluded.project_op_id`,
+        projectName: sql`excluded.project_name`,
         subject: sql`excluded.subject`,
         typeName: sql`excluded.type_name`,
         statusName: sql`excluded.status_name`,
@@ -723,6 +767,7 @@ function workPackageCacheRepository(
           connectionId: s.connectionId,
           opId: s.opId,
           projectOpId: s.projectOpId,
+          projectName: s.projectName,
           subject: s.subject,
           typeName: s.typeName,
           statusName: s.statusName,
@@ -946,6 +991,8 @@ function sprintRepository(db: OspDatabase): SprintRepository {
           frozenConnectionId: null,
           frozenProjectOpId: null,
           frozenRemainingHours: null,
+          frozenProjectName: null,
+          frozenProjectIdentifier: null,
         })
         .where(eq(sprintItem.sprintId, id));
       return mapSprint(row!);
@@ -1294,6 +1341,8 @@ function sprintItemRepository(db: OspDatabase): SprintItemRepository {
             frozenConnectionId: r.frozen_connection_id,
             frozenProjectOpId: r.frozen_project_op_id,
             frozenRemainingHours: r.frozen_remaining_hours,
+            frozenProjectName: r.frozen_project_name,
+            frozenProjectIdentifier: r.frozen_project_identifier,
           })
           .where(and(eq(sprintItem.id, r.item_id), eq(sprintItem.sprintId, sprintId)));
       }

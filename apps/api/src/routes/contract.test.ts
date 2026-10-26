@@ -38,6 +38,7 @@ function seedWp(
     {
       op_id: p.op_id,
       project_op_id: p.project_op_id ?? 100,
+      project_name: null,
       subject: p.subject ?? `WP ${p.op_id}`,
       type_name: p.type_name ?? "Task",
       status_name: p.status_name ?? "New",

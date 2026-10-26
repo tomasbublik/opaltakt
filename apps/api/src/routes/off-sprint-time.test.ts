@@ -79,6 +79,7 @@ async function seedCache(repos: Repositories, wp: OpWorkPackage): Promise<void> 
     {
       op_id: wp.id,
       project_op_id: 100,
+      project_name: null,
       subject: wp.subject,
       type_name: "Task",
       status_name: "New",

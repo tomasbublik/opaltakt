@@ -4,6 +4,7 @@ import type { AppDeps } from "../deps";
 import { connTokenBlob } from "../vault/index";
 import { baselineRemaining, refreshClosureArtifacts } from "./closure";
 import { effectiveEstimate } from "./estimate";
+import { createProjectResolver } from "./projectRef";
 import type { SprintLifecycle } from "./sprintUpdate";
 
 /**
@@ -125,12 +126,17 @@ export async function freezeSprint(deps: FreezeDeps, sprintId: number): Promise<
     (i) => i.outcome !== "removed" && i.outcome !== "removed_mid_sprint",
   );
   if (items.length > 0) {
-    const [wps, baselines, overrides, sprint] = await Promise.all([
+    const [wps, baselines, overrides, sprint, projects] = await Promise.all([
       repos.workPackages.getManyByOpIds(items.map((i) => i.wp_op_id)),
       repos.ticketBaselines.listBySprint(sprintId),
       repos.estimateOverrides.getManyByWpOpIds(items.map((i) => i.wp_op_id)),
       repos.sprints.getById(sprintId),
+      repos.projects.list(),
     ]);
+    // Increment 40 (§2.B2): the project snapshot goes through the ONE
+    // resolver — live cache row, falling back to the activation baseline's
+    // `_links.project` (which `frozen_project_op_id` used to lack).
+    const projectResolver = createProjectResolver(projects);
     const wpById = new Map(wps.map((w) => [w.op_id, w]));
     const baselineByWp = new Map(baselines.map((b) => [b.wp_op_id, b]));
     const overrideByWp = new Map(overrides.map((o) => [o.wp_op_id, o.planning_hours]));
@@ -148,6 +154,11 @@ export async function freezeSprint(deps: FreezeDeps, sprintId: number): Promise<
       const liveEstimated = wp?.estimated_hours ?? b?.estimated_hours ?? null;
       const liveRemaining = wp?.remaining_hours ?? b?.remaining_hours ?? null;
       const hasLiveSource = wp != null || b != null;
+      const project = projectResolver.resolve({
+        wp,
+        baselineRawJson: b?.raw_json ?? null,
+        connectionId: wp?.connection_id ?? null,
+      });
       const frozen_effective_hours =
         sprint?.is_retrospective === true || !hasLiveSource
           ? it.planned_hours
@@ -172,7 +183,10 @@ export async function freezeSprint(deps: FreezeDeps, sprintId: number): Promise<
         frozen_connection_id: wp?.connection_id ?? null,
         // AMENDMENT (§5.5 golden test): items/detailed needs the project id
         // after the cache row is gone — ticket_baseline has no project column.
-        frozen_project_op_id: wp?.project_op_id ?? null,
+        // Increment 40: id + name + identifier, resolved (baseline fallback).
+        frozen_project_op_id: project.op_id,
+        frozen_project_name: project.name,
+        frozen_project_identifier: project.identifier,
         // Increment 34 (docs/INCREMENT_34_CONTRACTS.md §4) — the live
         // REMAINING hours at freeze time, falling back to the baseline's
         // (never the resolved effective_hours above — a ticket can have a

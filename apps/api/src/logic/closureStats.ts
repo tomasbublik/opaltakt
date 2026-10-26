@@ -19,6 +19,7 @@ import { computePlannedScope } from "./plannedScope";
 import type { PlannedScopeItem } from "./plannedScope";
 import { computeSprintMembership, multiSprintBadge } from "./multiSprint";
 import { baselineRemaining } from "./closure";
+import { createProjectResolver } from "./projectRef";
 
 /**
  * Increment 14 (SPEC_14 §3) — role-aware CLOSURE STATISTICS, computed fresh on
@@ -194,6 +195,9 @@ export async function computeClosureStatsWithInternals(
   // response by construction. (The name↔id pairs the rows taught were learned
   // above, BEFORE this point — identity resolution keeps its full knowledge.)
   if (isFrozen) wpById.clear();
+  // Increment 40 (§2.B1/§2.B2): the ticket's OP project, via the ONE resolver —
+  // display-only, never feeds a number. Frozen ⇒ the freeze snapshot only.
+  const projectResolver = createProjectResolver(await repos.projects.list());
   /** Prefer the frozen snapshot's value over a live one — ONLY when the
    * sprint is actually frozen, and only when the snapshot itself has a
    * non-null value (a defensive fallback for the "item existed but was
@@ -641,9 +645,23 @@ export async function computeClosureStatsWithInternals(
       if (estimate > 0) overshootFlag = delta / estimate > overshoot_threshold_pct / 100;
       else overshootFlag = cumulativeDevLogged > 0; // 0-estimate + any dev time = overshoot
     }
+    const project = projectResolver.resolve(
+      isFrozen && frozen
+        ? {
+            frozen: {
+              op_id: frozen.frozen_project_op_id,
+              name: frozen.frozen_project_name,
+              identifier: frozen.frozen_project_identifier,
+            },
+          }
+        : { wp, baselineRawJson: b?.raw_json ?? null, connectionId: itemConn },
+    );
     perTicket.push({
       wp_op_id: it.wp_op_id,
       subject,
+      project_op_id: project.op_id,
+      project_name: project.name,
+      project_identifier: project.identifier,
       bucket: cls.bucket,
       // Increment 35 (docs/INCREMENT_35_CONTRACTS.md §2): the row's origin,
       // so the per-ticket table can badge added-during-sprint rows.

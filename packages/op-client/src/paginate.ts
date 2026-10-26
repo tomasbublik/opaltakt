@@ -2,6 +2,7 @@ import type { OpClient, TimeEntriesQuery, WorkPackagesQuery } from "./client";
 import type {
   OpActivity,
   OpMembership,
+  OpProject,
   OpTimeEntry,
   OpUser,
   OpWorkPackage,
@@ -73,6 +74,28 @@ export async function fetchAllUsers(
   let offset = 1;
   for (;;) {
     const page = await client.getUsers({ offset, pageSize });
+    out.push(...page._embedded.elements);
+    if (offset * pageSize >= page.total || page._embedded.elements.length === 0) break;
+    offset += 1;
+  }
+  return out;
+}
+
+/**
+ * Increment 40 (INCREMENT_40_CONTRACTS §2.A3) — every project the token can
+ * see: loop offset/pageSize over `GET /api/v3/projects` until the collection
+ * is covered, exactly like `fetchAllUsers`/`fetchProjectMemberships`. Before
+ * this, `getProjects()` returned only OP's default first page, so an instance
+ * with more projects than that silently lost the rest from the picker.
+ */
+export async function fetchAllProjects(
+  client: OpClient,
+  pageSize: number = DEFAULT_PAGE_SIZE,
+): Promise<OpProject[]> {
+  const out: OpProject[] = [];
+  let offset = 1;
+  for (;;) {
+    const page = await client.getProjects({ offset, pageSize });
     out.push(...page._embedded.elements);
     if (offset * pageSize >= page.total || page._embedded.elements.length === 0) break;
     offset += 1;

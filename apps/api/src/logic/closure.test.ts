@@ -33,6 +33,7 @@ async function seedActiveSprint(): Promise<number> {
     {
       op_id: 1001,
       project_op_id: 100,
+      project_name: null,
       subject: "Done ticket",
       type_name: "Task",
       status_name: "Closed",
@@ -54,6 +55,7 @@ async function seedActiveSprint(): Promise<number> {
     {
       op_id: 1002,
       project_op_id: 100,
+      project_name: null,
       subject: "Open ticket",
       type_name: "Task",
       status_name: "In progress",
@@ -264,6 +266,7 @@ describe("performClosure (SPEC_04 — finish path only)", () => {
       {
         op_id: 2001,
         project_op_id: 100,
+        project_name: null,
         subject: "Multi-sprint tail",
         type_name: "Task",
         status_name: "Closed",

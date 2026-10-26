@@ -67,6 +67,7 @@ async function seed(r: Repositories): Promise<number> {
       connection_id: null,
       op_id: t.wp,
       project_op_id: 100,
+      project_name: null,
       subject: `WP ${t.wp}`,
       type_name: "Task",
       status_name: t.outcome === "done" ? "Closed" : "In progress",

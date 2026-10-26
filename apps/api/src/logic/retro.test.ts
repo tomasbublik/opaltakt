@@ -131,6 +131,7 @@ function fakeOp(cfg: FakeOpCfg): OpClient {
     request: <T>() => Promise.resolve(undefined as T),
     getCurrentUser: () => Promise.resolve({ _type: "User", id: 1, name: "T" }),
     getProjects: () => Promise.resolve(coll([]) as any),
+    getProject: (id: number) => Promise.reject(new Error(`404 project ${id}`)),
     getWorkPackages: (query) => {
       const filters = (query?.filters ?? []) as any[];
       const idF = filters.find((f) => f && typeof f === "object" && "id" in f);

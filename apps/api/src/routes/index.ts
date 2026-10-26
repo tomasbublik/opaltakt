@@ -164,6 +164,8 @@ import {
   materializeReconstructedMember as materializeReconstructedMemberShared,
 } from "../logic/capacitySummary";
 import { generateSprintStatusPdf } from "../logic/statusReport";
+import { createProjectResolver } from "../logic/projectRef";
+import { refreshProjectsBestEffort } from "../logic/projectRefresh";
 import { fail, mapOpError, parseOrThrow } from "./helpers";
 import { mayContactOp } from "../auth/index";
 
@@ -871,6 +873,10 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       // via toWorkPackageCacheRow's required connectionId arg (Concept 5), so a
       // brand-new mid-sprint add never lands as an un-attributed "SERVER —" row.
       await repos.workPackages.upsertMany([toWorkPackageCacheRow(opWp, statusById, null, conn.id)]);
+      // Increment 40 (§2.A3): best-effort project identifier/name refresh.
+      await refreshProjectsBestEffort(op, repos, conn.id, [
+        parseOpId(opWp._links.project?.href ?? null),
+      ]);
       // Baseline otisk captured at the moment of adding (origin=added_mid_sprint).
       await repos.ticketBaselines.upsertMany([
         buildBaseline(id, opWp, statusById, now, "added_mid_sprint"),
@@ -1497,11 +1503,22 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
                 // packages/sync builds rows with connection_id null (it only
                 // ever sees a pre-built OpClient) — stamp the connection THIS
                 // group resolved, exactly as the per-project path does.
-                if (result.refreshedOpIds.length > 0)
+                if (result.refreshedOpIds.length > 0) {
                   await repos.workPackages.setConnectionIdForOpIds(
                     result.refreshedOpIds,
                     conn.id,
                   );
+                  // Increment 40 (§2.A3): the engine can't refresh projects
+                  // here (it never knew the connection) — do it now that the
+                  // rows are stamped. Best-effort, GET-only.
+                  const refreshed = new Set(result.refreshedOpIds);
+                  await refreshProjectsBestEffort(
+                    op,
+                    repos,
+                    conn.id,
+                    stale.filter((w) => refreshed.has(w.op_id)).map((w) => w.project_op_id),
+                  );
+                }
                 orphanOpIds = result.missingOpIds;
                 if (result.run) connLast = result.run;
               }
@@ -1782,6 +1799,11 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       // here so a later multi-connection "Sync now" refreshes it from the RIGHT
       // server (re-upsert on the same op_id — a no-op besides this one field).
       await repos.workPackages.upsertMany([{ ...wp, connection_id: conn.id }]);
+      // Increment 40 (§2.A3): the engine's importWorkPackage is connection-
+      // agnostic (its own refresh is a no-op without a connection), so the
+      // caller that stamps the connection post-hoc refreshes the project —
+      // best-effort, never failing the add.
+      await refreshProjectsBestEffort(op, repos, conn.id, [wp.project_op_id]);
       // Explicitly adding a ticket un-hides it if it was previously removed.
       await repos.backlogDismissals.remove([body.op_id]);
       return reply.code(201).send(wp);
@@ -1813,7 +1835,8 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       // project; otherwise fall back to the latest successful sync run. Without
       // this fallback the header showed "never" whenever no default project was set.
       if (conn?.default_project_op_id != null) {
-        const p = await repos.projects.getByOpId(conn.default_project_op_id);
+        // Increment 40: connection-scoped (op_id repeats across servers).
+        const p = await repos.projects.getByConnectionAndOpId(conn.id, conn.default_project_op_id);
         lastSyncedAt = p?.last_synced_at ?? null;
       }
       if (lastSyncedAt == null) {
@@ -1872,21 +1895,28 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       // field. `assignee`/`version` (bare id, no key) keep the old behaviour.
       const aKey = f.assigneeKey ? parseFilterKey(f.assigneeKey) : null;
       const vKey = f.versionKey ? parseFilterKey(f.versionKey) : null;
+      // Increment 40 (§2.B3): `projectKey` is the connection-safe project
+      // filter, with the same precedence over the collision-unsafe legacy
+      // `projectId` that `assigneeKey` has over `assignee`.
+      const pKey = f.projectKey ? parseFilterKey(f.projectKey) : null;
       const assigneeOpId = aKey ? aKey.id : f.assignee;
       const versionOpId = vKey ? vKey.id : f.version;
-      // Both keys carry a connection; a WP row has exactly ONE connection, so if
-      // they disagree nothing can match (return the empty set rather than
+      const projectOpId = pKey ? pKey.id : f.projectId;
+      // Every key carries a connection; a WP row has exactly ONE connection, so
+      // if they disagree nothing can match (return the empty set rather than
       // silently applying just one). Otherwise the single connection constraint
       // is whichever key(s) supplied it.
+      const keys = [aKey, vKey, pKey].filter(
+        (k): k is { connectionId: number | null; id: number } => k !== null,
+      );
       let keyConn: number | null | undefined = undefined;
-      if (aKey && vKey) {
-        if (aKey.connectionId !== vKey.connectionId) return [];
-        keyConn = aKey.connectionId;
-      } else if (aKey) keyConn = aKey.connectionId;
-      else if (vKey) keyConn = vKey.connectionId;
+      if (keys.length > 0) {
+        keyConn = keys[0]!.connectionId;
+        if (keys.some((k) => k.connectionId !== keyConn)) return [];
+      }
 
       let wps = await repos.workPackages.find({
-        ...(f.projectId !== undefined ? { projectOpId: f.projectId } : {}),
+        ...(projectOpId !== undefined ? { projectOpId } : {}),
         ...(f.status ? { statusName: f.status } : {}),
         ...(assigneeOpId ? { assigneeOpId } : {}),
         ...(versionOpId ? { versionOpId } : {}),
@@ -1896,9 +1926,8 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       if (f.connectionId !== undefined) {
         wps = wps.filter((w) => w.connection_id === f.connectionId);
       }
-      const projectNameByOpId = new Map(
-        (await repos.projects.list()).map((p) => [p.op_id, p.name]),
-      );
+      // Increment 40 (§2.B1): the ONE project resolver, connection-scoped.
+      const projectResolver = createProjectResolver(await repos.projects.list());
       const connById = new Map((await repos.connections.list()).map((c) => [c.id, c]));
       const opIds = wps.map((w) => w.op_id);
       const overrides = await repos.estimateOverrides.getManyByWpOpIds(opIds);
@@ -1919,9 +1948,11 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       let result: BacklogItem[] = wps.map((w) => {
         const override = ovById.get(w.op_id)?.planning_hours ?? null;
         const conn = w.connection_id !== null ? connById.get(w.connection_id) : undefined;
+        const project = projectResolver.resolve({ wp: w });
         return {
           ...w,
-          project_name: projectNameByOpId.get(w.project_op_id) ?? null,
+          project_name: project.name,
+          project_identifier: project.identifier,
           override_hours: override,
           effective_hours: effectiveEstimate(w.estimated_hours, w.remaining_hours, override),
           in_sprint: inSprint.has(w.op_id),
@@ -1951,6 +1982,7 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
         version: raw.version !== undefined ? Number(raw.version) : undefined,
         assigneeKey: raw.assigneeKey,
         versionKey: raw.versionKey,
+        projectKey: raw.projectKey,
         priority: raw.priority,
         connectionId: raw.connectionId !== undefined ? Number(raw.connectionId) : undefined,
       });
@@ -1959,7 +1991,7 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       // already selected for that same facet.
       const [forProjects, forStatuses, forAssignees, forVersions, forPriorities, forServers] =
         await Promise.all([
-          visibleBacklog({ ...q, projectId: undefined }),
+          visibleBacklog({ ...q, projectId: undefined, projectKey: undefined }),
           visibleBacklog({ ...q, status: undefined }),
           visibleBacklog({ ...q, assignee: undefined, assigneeKey: undefined }),
           visibleBacklog({ ...q, version: undefined, versionKey: undefined }),
@@ -2024,7 +2056,14 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
           );
       }
       const res: BacklogFilterOptionsResponse = {
-        projects: uniqStr(forProjects.map((w) => w.project_name)),
+        // Increment 40 (§2.B3): keyed `${connection_id}:${project_op_id}` like
+        // assignees/versions — two same-named projects on two servers stay two
+        // entries. Label = resolved name → identifier → `#<op_id>`.
+        projects: optionEntries(
+          forProjects,
+          (w) => (w.project_op_id > 0 ? w.project_op_id : null),
+          (w) => w.project_name ?? w.project_identifier ?? `#${w.project_op_id}`,
+        ),
         statuses: uniqStr(forStatuses.map((w) => w.status_name)),
         assignees: optionEntries(
           forAssignees,
@@ -2055,6 +2094,7 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
         version: raw.version !== undefined ? Number(raw.version) : undefined,
         assigneeKey: raw.assigneeKey,
         versionKey: raw.versionKey,
+        projectKey: raw.projectKey,
         priority: raw.priority,
         hasEstimate: raw.hasEstimate,
         connectionId: raw.connectionId !== undefined ? Number(raw.connectionId) : undefined,
@@ -2152,13 +2192,10 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
         repos.connections.list(),
         sprintNamesByOpId(rows.map((w) => w.op_id)),
       ]);
-      // Project names are connection-scoped (`op_id` repeats across servers),
-      // with a bare-op_id fallback for legacy rows that predate connection
-      // attribution — same shape as everywhere else in this file.
-      const projectByKey = new Map(
-        projects.map((p) => [`${p.connection_id ?? "none"}:${p.op_id}`, p.name]),
-      );
-      const projectByOpId = new Map(projects.map((p) => [p.op_id, p.name]));
+      // Increment 40 (§2.B1): project names via the ONE resolver —
+      // connection-scoped (`op_id` repeats across servers), WP payload title
+      // first, legacy connection-less rows only on an unambiguous op_id.
+      const projectResolver = createProjectResolver(projects);
       const connById = new Map(connections.map((c) => [c.id, c]));
 
       const entries: OutOfSelectionEntry[] = rows.map((w) => {
@@ -2169,10 +2206,9 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
           op_id: w.op_id,
           subject: w.subject,
           project_op_id: w.project_op_id,
-          project_name:
-            projectByKey.get(`${owner ?? "none"}:${w.project_op_id}`) ??
-            projectByOpId.get(w.project_op_id) ??
-            null,
+          project_name: projectResolver.resolve({
+            wp: { ...w, connection_id: w.connection_id ?? owner },
+          }).name,
           version_op_id: w.version_op_id,
           version_name: w.version_name,
           connection_id: w.connection_id,
@@ -2658,6 +2694,10 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       const statusById = new Map<number, OpStatus>();
       for (const s of statuses._embedded.elements) statusById.set(s.id, s);
       await repos.workPackages.upsertMany([toWorkPackageCacheRow(opWp, statusById, null, conn.id)]);
+      // Increment 40 (§2.A3): best-effort project identifier/name refresh.
+      await refreshProjectsBestEffort(op, repos, conn.id, [
+        parseOpId(opWp._links.project?.href ?? null),
+      ]);
       await repos.ticketBaselines.upsertMany([
         buildBaseline(id, opWp, statusById, now, "added_retroactively"),
       ]);
@@ -3460,13 +3500,16 @@ export function createRoutes(deps: AppDeps): FastifyPluginAsync {
       const wpOpIds = notDone.map((i) => i.wp_op_id);
 
       // Resolve project identifier from the first WP's project.
+      // Increment 40 (§2.B2): connection-scoped lookup via the ONE resolver —
+      // the bare `getByOpId` could pick another server's same-id project.
       let identifier = "";
       const firstWp = wpById.get(wpOpIds[0] ?? -1);
+      const projectResolver = createProjectResolver(await repos.projects.list());
       if (firstWp) {
-        const project = await repos.projects.getByOpId(firstWp.project_op_id);
+        const project = projectResolver.lookup(firstWp.connection_id, firstWp.project_op_id);
         identifier = project?.identifier ?? String(firstWp.project_op_id);
       } else if (conn.default_project_op_id != null) {
-        const project = await repos.projects.getByOpId(conn.default_project_op_id);
+        const project = projectResolver.lookup(conn.id, conn.default_project_op_id);
         identifier = project?.identifier ?? String(conn.default_project_op_id);
       }
 

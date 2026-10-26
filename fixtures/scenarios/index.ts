@@ -26,6 +26,7 @@ import { s18NightlyAuTicket } from "./s18-nightly-au-ticket";
 import { s19SyncCoverage } from "./s19-sync-coverage";
 import { s20SyncCoverageOrphaned } from "./s20-sync-coverage-orphaned";
 import { s21Inc30CurrentScopePlanned } from "./s21-inc30-current-scope-planned";
+import { s22MultiProject, s22MultiProjectServer2 } from "./s22-multi-project";
 
 export const scenarios: Scenario[] = [
   s1AccountableHandoff,
@@ -49,6 +50,8 @@ export const scenarios: Scenario[] = [
   s19SyncCoverage,
   s20SyncCoverageOrphaned,
   s21Inc30CurrentScopePlanned,
+  s22MultiProject,
+  s22MultiProjectServer2,
 ];
 
 export {
@@ -73,6 +76,8 @@ export {
   s19SyncCoverage,
   s20SyncCoverageOrphaned,
   s21Inc30CurrentScopePlanned,
+  s22MultiProject,
+  s22MultiProjectServer2,
 };
 
 /**
@@ -88,3 +93,15 @@ export {
   S21_VERSION_ID,
   S21_WP,
 } from "./s21-inc30-current-scope-planned";
+
+/**
+ * Increment 40 — S22's project/WP/person ids, re-exported for the golden and
+ * e2e suites (same rationale as S21's re-export above).
+ */
+export {
+  S22_PROJECTS,
+  S22_SERVER2_PROJECT,
+  S22_SERVER2_WP,
+  S22_USERS,
+  S22_WP,
+} from "./s22-multi-project";

@@ -9,6 +9,7 @@ function wp(p: Partial<NewWorkPackageCache> & { op_id: number }): NewWorkPackage
     connection_id: p.connection_id ?? null,
     op_id: p.op_id,
     project_op_id: 100,
+    project_name: null,
     subject: p.subject ?? `WP ${p.op_id}`,
     type_name: "Task",
     status_name: p.status_name ?? "New",
@@ -364,7 +365,7 @@ describe("Increment 33 §0.1 — off_sprint is STRICTLY SEPARATE from every othe
       await t.repos.teamMembers.setRole(dev.id, "developer");
       await t.repos.workPackages.upsertMany([
         {
-          connection_id: null, op_id: 1, project_op_id: 100, subject: "WP 1", type_name: "Task",
+          connection_id: null, op_id: 1, project_op_id: 100, project_name: null, subject: "WP 1", type_name: "Task",
           status_name: "In progress", status_is_closed: false, assignee_op_id: 10, assignee_name: "Dev One",
           estimated_hours: 8, remaining_hours: 8, spent_hours: null, story_points: null,
           version_op_id: null, version_name: null, priority: null, parent_op_id: null, percentage_done: null,

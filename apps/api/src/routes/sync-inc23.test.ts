@@ -31,6 +31,7 @@ function wpRow(over: {
     connection_id: over.connection_id,
     op_id: over.op_id,
     project_op_id: 100,
+    project_name: null,
     subject: `WP ${over.op_id}`,
     type_name: "Task",
     status_name: "New",

@@ -593,3 +593,42 @@ describe("ClosureScreen — Increment 35 scope origin", () => {
     expect(within(retroRow).getByTestId("scope-origin-badge-3")).toHaveTextContent("added (retro)");
   });
 });
+
+// Increment 40 (C1, §1.2): the per-ticket "Project" column (shared with
+// ReportsScreen via ClosureStatsView) — name, tooltip = identifier;
+// name null → identifier; both null → "—".
+describe("ClosureScreen — Increment 40 project column", () => {
+  it("adds a Project column after Ticket with name, identifier tooltip and fallbacks", async () => {
+    mockApi.getClosureStats = vi.fn().mockResolvedValue(
+      makeClosureStats({
+        per_ticket: [
+          makeTicketEstimateLine({ wp_op_id: 1, subject: "Northwind fix", project_op_id: 10, project_name: "Northwind Payments", project_identifier: "northwind" }),
+          makeTicketEstimateLine({ wp_op_id: 2, subject: "Ident-only fix", project_op_id: 20, project_name: null, project_identifier: "harbor-ops" }),
+          makeTicketEstimateLine({ wp_op_id: 3, subject: "Unknown fix", project_op_id: null, project_name: null, project_identifier: null }),
+        ],
+      }),
+    );
+
+    renderClosure();
+
+    const table = await screen.findByTestId("per-ticket-table");
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers.slice(0, 3)).toEqual(["Ticket", "Project", "Bucket"]);
+
+    const c1 = within(table).getByTestId("per-ticket-project-1");
+    expect(c1).toHaveTextContent("Northwind Payments");
+    expect(c1).toHaveAttribute("title", "northwind");
+    expect(within(table).getByTestId("per-ticket-project-2")).toHaveTextContent("harbor-ops");
+    const c3 = within(table).getByTestId("per-ticket-project-3");
+    expect(c3).toHaveTextContent("—");
+    expect(c3).not.toHaveAttribute("title");
+  });
+
+  it("spans the empty-state row across every column, Project included", async () => {
+    mockApi.getClosureStats = vi.fn().mockResolvedValue(makeClosureStats({ per_ticket: [] }));
+    renderClosure();
+    const table = await screen.findByTestId("per-ticket-table");
+    const cell = within(table).getByText("No tickets.").closest("td")!;
+    expect(cell).toHaveAttribute("colspan", String(within(table).getAllByRole("columnheader").length));
+  });
+});

@@ -199,14 +199,20 @@ function assertNoCasingDuplicates(values: string[], facet: string): void {
  * ids sharing a name is legitimate real-world data, not a bug (see call site
  * comment), so this deliberately does NOT flag that. */
 function assertNoIdWithMultipleCasings(
-  entries: { id: number; name: string }[],
+  entries: { id: number; name: string; key?: string }[],
   facet: string,
 ): void {
-  const byId = new Map<number, Set<string>>();
-  for (const { id, name } of entries) {
-    const set = byId.get(id) ?? new Set<string>();
+  // Grouped by the connection-safe `key` (`${connection_id}:${id}`, Increment
+  // 23), NOT the bare id: an OP id is only unique WITHIN one server, so the
+  // global facet legitimately lists user id 1 once per connection with two
+  // different people (made visible once Increment 40 stopped one server's
+  // import re-stamping another server's cache rows).
+  const byId = new Map<string, Set<string>>();
+  for (const { id, name, key } of entries) {
+    const k = key ?? String(id);
+    const set = byId.get(k) ?? new Set<string>();
     set.add(name);
-    byId.set(id, set);
+    byId.set(k, set);
   }
   for (const [id, names] of byId) {
     expect(

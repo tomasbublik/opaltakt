@@ -14,7 +14,9 @@ import type {
   BurndownRepository,
   NewBurndownSnapshot,
   NewRemainingStatusRule,
+  NewProject,
   NewWorkPackageCache,
+  ProjectKeyPair,
   ProjectRepository,
   RemainingStatusRuleRepository,
   SprintItemRepository,
@@ -91,7 +93,11 @@ export class FakeWorkPackageCacheRepo implements WorkPackageCacheRepository {
   }
   async setConnectionIdForProject(projectOpId: number, connectionId: number): Promise<void> {
     for (const row of this.rows.values()) {
-      if (row.project_op_id === projectOpId) row.connection_id = connectionId;
+      if (
+        row.project_op_id === projectOpId &&
+        (row.connection_id === null || row.connection_id === connectionId)
+      )
+        row.connection_id = connectionId;
     }
   }
   async setConnectionIdForOpIds(opIds: number[], connectionId: number): Promise<void> {
@@ -297,7 +303,12 @@ export class FakeSyncWatermarkRepo implements SyncWatermarkRepository {
 
 export class FakeProjectRepo implements ProjectRepository {
   projects: Project[] = [];
-  lastSynced = new Map<number, string>();
+  /** Keyed `${connection_id ?? "none"}:${op_id}` — connection-scoped since
+   * Increment 40 (a bare op_id collides across servers). */
+  lastSynced = new Map<string, string>();
+  /** Every row handed to upsertMany (Increment 40 refreshProjects). */
+  upserts: NewProject[] = [];
+  private seq = 1000;
 
   seed(projects: Project[]): void {
     this.projects = projects;
@@ -313,10 +324,35 @@ export class FakeProjectRepo implements ProjectRepository {
       this.projects.find((p) => p.connection_id === connectionId && p.op_id === opId) ?? null
     );
   }
-  async setLastSyncedAt(opId: number, at: string): Promise<void> {
-    this.lastSynced.set(opId, at);
+  async getByConnectionAndOpIds(pairs: ReadonlyArray<ProjectKeyPair>): Promise<Project[]> {
+    return this.projects.filter((p) =>
+      pairs.some(
+        (k) => (p.connection_id ?? null) === k.connection_id && p.op_id === k.op_id,
+      ),
+    );
   }
-  upsertMany = notUsed("upsertMany");
+  async setLastSyncedAt(connectionId: number | null, opId: number, at: string): Promise<void> {
+    this.lastSynced.set(`${connectionId ?? "none"}:${opId}`, at);
+    for (const p of this.projects) {
+      if ((p.connection_id ?? null) === connectionId && p.op_id === opId) p.last_synced_at = at;
+    }
+  }
+  async upsertMany(rows: NewProject[]): Promise<void> {
+    for (const r of rows) {
+      this.upserts.push(r);
+      const conn = r.connection_id ?? null;
+      const existing = this.projects.find(
+        (p) => (p.connection_id ?? null) === conn && p.op_id === r.op_id,
+      );
+      if (existing !== undefined) {
+        existing.identifier = r.identifier;
+        existing.name = r.name;
+        existing.last_synced_at = r.last_synced_at;
+      } else {
+        this.projects.push({ id: this.seq++, ...r, connection_id: conn });
+      }
+    }
+  }
 }
 
 export class FakeBurndownRepo implements BurndownRepository {

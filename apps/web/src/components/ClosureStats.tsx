@@ -178,6 +178,7 @@ export function ClosureStatsView({
           <thead>
             <tr>
               <th>Ticket</th>
+              <th>Project</th>
               <th>Bucket</th>
               <th>Estimate</th>
               <th>Dev logged</th>
@@ -189,7 +190,7 @@ export function ClosureStatsView({
           <tbody>
             {stats.per_ticket.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <EmptyState>No tickets.</EmptyState>
                 </td>
               </tr>
@@ -227,6 +228,11 @@ export function ClosureStatsView({
                         </span>
                       </>
                     ) : null}
+                  </td>
+                  {/* Increment 40 (C1, §1.2): name, tooltip = identifier;
+                      name null → identifier; both null → "—". */}
+                  <td title={t.project_identifier ?? undefined} data-testid={`per-ticket-project-${t.wp_op_id}`}>
+                    {t.project_name ?? t.project_identifier ?? <span className="muted">—</span>}
                   </td>
                   <td>
                     <span className="badge">{t.bucket}</span>

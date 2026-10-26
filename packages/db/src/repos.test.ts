@@ -29,6 +29,7 @@ function wp(partial: Partial<NewWorkPackageCache> & { op_id: number }): NewWorkP
     connection_id: partial.connection_id ?? null,
     op_id: partial.op_id,
     project_op_id: partial.project_op_id ?? 100,
+    project_name: partial.project_name ?? null,
     subject: partial.subject ?? `WP ${partial.op_id}`,
     type_name: partial.type_name ?? "Task",
     status_name: partial.status_name ?? "New",
@@ -905,6 +906,124 @@ describe("db repositories (in-memory, migrated)", () => {
     await r.watermarks.clearForConnection(null);
     expect(await r.watermarks.get(null, 100)).toBeNull();
     expectSameInstant(await r.watermarks.get(b.id, 100), "2026-08-01T10:00:00Z");
+    await close();
+  });
+
+  // ── Increment 40 (INCREMENT_40_CONTRACTS §2.A2) — project display fields ──
+  it("work packages: project_name round-trips through upsertMany and the staging merge", async () => {
+    const { repositories: r, close } = await openDb({ ephemeral: true });
+    await r.workPackages.upsertMany([wp({ op_id: 1, project_op_id: 11, project_name: "Northwind Payments" })]);
+    expect((await r.workPackages.getByOpId(1))?.project_name).toBe("Northwind Payments");
+
+    // commitStaging must COPY project_name (it lists columns explicitly — a
+    // missing entry silently drops it): new row + rename of an existing row.
+    const run = await r.syncRuns.start("full");
+    await r.workPackages.stageBatch(run.id, [
+      wp({ op_id: 1, project_op_id: 11, project_name: "Northwind Payments (renamed)" }),
+      wp({ op_id: 2, project_op_id: 12, project_name: "Harbor Ops" }),
+      wp({ op_id: 3, project_op_id: 13, project_name: null }),
+    ]);
+    expect(await r.workPackages.commitStaging(run.id)).toBe(3);
+    const rows = await r.workPackages.getManyByOpIds([1, 2, 3]);
+    expect(Object.fromEntries(rows.map((w) => [w.op_id, w.project_name]))).toEqual({
+      1: "Northwind Payments (renamed)",
+      2: "Harbor Ops",
+      3: null,
+    });
+    await close();
+  });
+
+  it("projects: getByConnectionAndOpIds is exact-key; setLastSyncedAt is connection-scoped", async () => {
+    const { repositories: r, close } = await openDb({ ephemeral: true });
+    const mk = (base_url: string) =>
+      r.connections.create({
+        base_url,
+        label: null,
+        token_ct: null,
+        token_nonce: null,
+        token_tag: null,
+        default_project_op_id: null,
+      });
+    const a = await mk("https://a.example.test");
+    const b = await mk("https://b.example.test");
+    // Same numeric op_id 11 on two servers + a legacy connection-less row.
+    await r.projects.upsertMany([
+      { connection_id: a.id, op_id: 11, identifier: "northwind", name: "Northwind Payments", last_synced_at: null },
+      { connection_id: b.id, op_id: 11, identifier: "lighthouse", name: "Lighthouse", last_synced_at: null },
+      { connection_id: a.id, op_id: 12, identifier: "harbor-ops", name: "Harbor Ops", last_synced_at: null },
+      { connection_id: null, op_id: 11, identifier: "legacy", name: "Legacy", last_synced_at: null },
+    ]);
+
+    expect(await r.projects.getByConnectionAndOpIds([])).toEqual([]);
+    const got = await r.projects.getByConnectionAndOpIds([
+      { connection_id: b.id, op_id: 11 },
+      { connection_id: a.id, op_id: 12 },
+      { connection_id: a.id, op_id: 999 }, // missing → simply absent
+    ]);
+    expect(got.map((p) => `${p.connection_id}:${p.op_id}:${p.identifier}`).sort()).toEqual(
+      [`${b.id}:11:lighthouse`, `${a.id}:12:harbor-ops`].sort(),
+    );
+    const legacy = await r.projects.getByConnectionAndOpIds([{ connection_id: null, op_id: 11 }]);
+    expect(legacy.map((p) => p.identifier)).toEqual(["legacy"]);
+
+    await r.projects.setLastSyncedAt(a.id, 11, "2026-08-01T10:00:00Z");
+    const all = await r.projects.list();
+    const stamp = (conn: number | null, opId: number) =>
+      all.find((p) => p.connection_id === conn && p.op_id === opId)?.last_synced_at ?? null;
+    expectSameInstant(stamp(a.id, 11), "2026-08-01T10:00:00Z");
+    // The OTHER server's op_id 11 and the legacy row are untouched.
+    expect(stamp(b.id, 11)).toBeNull();
+    expect(stamp(null, 11)).toBeNull();
+    expect(stamp(a.id, 12)).toBeNull();
+    await close();
+  });
+
+  it("freeze snapshot: frozen_project_name/identifier are written, read back, and cleared by reactivate", async () => {
+    const { repositories: r, close } = await openDb({ ephemeral: true });
+    const s = await r.sprints.create({
+      name: "Sprint 40",
+      start_date: "2026-06-01",
+      end_date: "2026-06-14",
+      status: "planning",
+      capacity_mode: "per_person",
+    });
+    const item = await r.sprintItems.add({
+      sprint_id: s.id,
+      wp_op_id: 7,
+      planned_hours: 4,
+      outcome: "planned",
+      origin: "baseline",
+    });
+    await r.sprintItems.writeFreezeSnapshot(s.id, [
+      {
+        item_id: item.id,
+        frozen_effective_hours: 4,
+        frozen_assignee_op_id: null,
+        frozen_assignee_name: null,
+        frozen_status_name: "Closed",
+        frozen_status_is_closed: true,
+        frozen_parent_op_id: null,
+        frozen_connection_id: null,
+        frozen_project_op_id: 11,
+        frozen_remaining_hours: 0,
+        frozen_project_name: "Northwind Payments",
+        frozen_project_identifier: "northwind",
+      },
+    ]);
+    const [snap] = await r.sprintItems.listFrozenSnapshot(s.id);
+    expect(snap).toMatchObject({
+      frozen_project_op_id: 11,
+      frozen_project_name: "Northwind Payments",
+      frozen_project_identifier: "northwind",
+    });
+
+    await r.sprints.reactivate(s.id);
+    const [cleared] = await r.sprintItems.listFrozenSnapshot(s.id);
+    expect(cleared).toMatchObject({
+      frozen_project_op_id: null,
+      frozen_project_name: null,
+      frozen_project_identifier: null,
+    });
     await close();
   });
 });

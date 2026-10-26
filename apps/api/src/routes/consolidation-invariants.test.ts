@@ -48,6 +48,7 @@ function wpRow(p: Partial<NewWorkPackageCache> & { op_id: number }): NewWorkPack
     connection_id: p.connection_id ?? null,
     op_id: p.op_id,
     project_op_id: p.project_op_id ?? 100,
+    project_name: null,
     subject: p.subject ?? `WP ${p.op_id}`,
     type_name: "Task",
     status_name: p.status_name ?? "New",

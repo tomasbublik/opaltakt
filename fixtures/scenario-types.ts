@@ -51,6 +51,7 @@
  *  POST /__mock/inject-urgent      → { work_package: WorkPackageStateSummary }
  *  GET  /__mock/state              → MockStateSummary
  *  POST /__mock/reset              → { mode: "fixtures" }
+ *  POST /__mock/rename-project/:id → RenameProjectResult (body: RenameProjectRequest)
  *  GET  /__mock/ui (+ /__mock/ui/*) → static control panel from fixtures/mock-ui/
  */
 
@@ -76,6 +77,15 @@ export interface ScenarioProject {
   id: number;
   identifier: string;
   name: string;
+  /**
+   * Increment 40 — a project the token cannot see as a PROJECT although its
+   * work packages are visible (real OP: WP shared across projects, archived
+   * project, or a role without "view project" on it). The mock keeps serving
+   * its WPs (with `_links.project.title` = `name`, exactly like real OP's
+   * embedded link) but omits it from `GET /api/v3/projects` and answers
+   * `GET /api/v3/projects/{id}` with a 404 HAL error. Default false.
+   */
+  hidden?: boolean;
 }
 
 export interface ScenarioVersion {
@@ -277,6 +287,25 @@ export interface MockStateSummary {
   /** Days remaining with unapplied timeline events. */
   pending_days: number;
   work_packages: WorkPackageStateSummary[];
+}
+
+/**
+ * Body of POST /__mock/rename-project/:id (Increment 40). Either field may be
+ * omitted (= unchanged); at least one must be present. The rename is live:
+ * every later `/api/v3/projects*` response AND every WP `_links.project.title`
+ * carries the new values (scenario mode also time entries / memberships /
+ * versions; fixture mode overlays projects, WPs and memberships). It is
+ * state like any other mutation — a fresh `load` (or a backwards `goto-day`,
+ * which reloads) or `reset` discards it.
+ */
+export interface RenameProjectRequest {
+  name?: string;
+  identifier?: string;
+}
+
+/** Response of POST /__mock/rename-project/:id — the project AFTER the rename. */
+export interface RenameProjectResult {
+  project: { id: number; identifier: string; name: string; hidden: boolean };
 }
 
 export interface AdvanceDayRequest {

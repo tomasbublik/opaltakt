@@ -84,6 +84,7 @@ describe("Increment 30 §2c — an in-scope ticket with NO current assignee is U
       {
         op_id: id,
         project_op_id: 100,
+        project_name: null,
         subject: `WP ${id}`,
         type_name: "Task",
         status_name: "In progress",

@@ -2974,6 +2974,13 @@ function WpCard({
             )}
           </div>
           <div className="card-meta">
+            {/* Increment 40 (S1): neutral project badge — identifier (short),
+                tooltip = name; identifier null → name; both null → nothing. */}
+            {(item.project_identifier ?? item.project_name) ? (
+              <span className="badge project" title={item.project_name ?? undefined}>
+                {item.project_identifier ?? item.project_name}
+              </span>
+            ) : null}
             <span className={`badge ${item.status_is_closed ? "closed" : "open"}`}>{item.status_name}</span>
             {added ? <span className="badge added">added</span> : null}
             {historicalRemoved ? <span className="badge removed">removed</span> : null}

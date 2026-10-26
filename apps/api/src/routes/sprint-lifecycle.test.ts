@@ -136,6 +136,7 @@ async function seedCache(repos: Repositories, wp: OpWorkPackage): Promise<void> 
     {
       op_id: wp.id,
       project_op_id: 100,
+      project_name: null,
       subject: wp.subject,
       type_name: "Task",
       status_name: status.name,
@@ -652,6 +653,7 @@ describe("SPEC_04 sprint lifecycle (activate / update / finish, changelog, lock)
         connection_id: conn.id,
         op_id: 7001,
         project_op_id: 100,
+        project_name: null,
         subject: "Done A",
         type_name: "Task",
         status_name: "Closed",

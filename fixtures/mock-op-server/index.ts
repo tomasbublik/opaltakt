@@ -8,7 +8,7 @@ import {
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Scenario } from "../scenario-types";
+import type { Scenario, ScenarioProject } from "../scenario-types";
 import { handleAdmin } from "./admin";
 import {
   loadScenarioRegistry,
@@ -72,7 +72,7 @@ const schema = load<unknown>("schema.json");
 interface WorkPackageLike {
   id?: number;
   _links?: {
-    project?: { href?: string | null };
+    project?: { href?: string | null; title?: string };
     version?: { href?: string | null };
   };
 }
@@ -129,6 +129,92 @@ function filterValuesFrom(filtersParam: string | null, key: string): string[] | 
   return null;
 }
 
+// ── Projects (Increment 40) ──────────────────────────────────────────────────
+
+interface FixtureProjectHal {
+  _type: string;
+  id: number;
+  identifier: string;
+  name: string;
+  active?: boolean;
+  _links: { self: { href: string; title?: string } };
+}
+
+/** The static fixture-mode projects (data/projects.json, cached at init). */
+function fixtureProjectList(): FixtureProjectHal[] {
+  return (projects as { _embedded: { elements: FixtureProjectHal[] } })._embedded.elements;
+}
+
+/** Fixture projects as plain {id, identifier, name} (engine rename validation). */
+function fixtureProjectSeeds(): ScenarioProject[] {
+  return fixtureProjectList().map((p) => ({ id: p.id, identifier: p.identifier, name: p.name }));
+}
+
+/** One fixture project with the engine's rename overlay applied (a fresh copy). */
+function fixtureProjectView(engine: ScenarioEngine, p: FixtureProjectHal): FixtureProjectHal {
+  const o = engine.fixtureProjectOverride(p.id);
+  if (o.name === undefined && o.identifier === undefined) return p;
+  const name = o.name ?? p.name;
+  return {
+    ...p,
+    identifier: o.identifier ?? p.identifier,
+    name,
+    _links: { ...p._links, self: { ...p._links.self, title: name } },
+  };
+}
+
+/** Display name of fixture project `id` (rename-aware), or null when unknown. */
+function fixtureProjectName(engine: ScenarioEngine, id: number): string | null {
+  const p = fixtureProjectList().find((x) => x.id === id);
+  return p === undefined ? null : fixtureProjectView(engine, p).name;
+}
+
+/**
+ * Overlay a fixture-mode rename onto a WP's `_links.project.title` (real OP
+ * embeds the CURRENT project name in every WP link). Untouched WPs are
+ * returned as-is so the unrenamed fixture output stays byte-identical.
+ */
+function withFixtureProjectTitle(engine: ScenarioEngine, wp: WorkPackageLike): WorkPackageLike {
+  const pid = wpProjectId(wp);
+  if (pid === null) return wp;
+  const override = engine.fixtureProjectOverride(Number(pid));
+  if (override.name === undefined) return wp;
+  return {
+    ...wp,
+    _links: { ...wp._links, project: { ...wp._links!.project, title: override.name } },
+  };
+}
+
+/**
+ * `GET /api/v3/projects` page (Increment 40): real OP paginates this
+ * collection like every other (offset = 1-based page number, pageSize). A
+ * request WITHOUT paging params gets every element on one page — the
+ * pre-Increment-40 behaviour an unpaginated client relies on.
+ */
+function projectsCollection(path: string, url: URL, elements: unknown[]): unknown {
+  const hasPaging = url.searchParams.has("pageSize") || url.searchParams.has("offset");
+  if (!hasPaging) return collection(path, elements);
+  return paginateCollection({
+    type: "Collection",
+    path,
+    source: elements,
+    offset: Math.max(1, Number(url.searchParams.get("offset") ?? "1") || 1),
+    pageSize: Math.max(1, Number(url.searchParams.get("pageSize") ?? "30") || 30),
+  });
+}
+
+/** Real OP's answer for a project the token can't see OR that doesn't exist —
+ * the two are deliberately indistinguishable (no existence leak). */
+function projectNotFound(res: ServerResponse, id: number): void {
+  sendJson(res, 404, {
+    _type: "Error",
+    errorIdentifier: "urn:openproject-org:api:v3:errors:NotFound",
+    message: `The requested resource could not be found (project ${id}).`,
+  });
+}
+
+const ONE_PROJECT_PATH = /^\/api\/v3\/projects\/(\d+)$/;
+
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -174,7 +260,7 @@ function paginateFixtureWorkPackages(
   });
 }
 
-function handleFixtureGet(url: URL, res: ServerResponse): void {
+function handleFixtureGet(engine: ScenarioEngine, url: URL, res: ServerResponse): void {
   const path = url.pathname;
 
   // Increment 4: fixture mode has no journal history — empty, not 404 (a real
@@ -194,7 +280,9 @@ function handleFixtureGet(url: URL, res: ServerResponse): void {
   // Work packages listing — dynamic pagination + optional project filter.
   // Re-read the JSON FRESH so simulated status/time changes appear on next sync.
   if (path === "/api/v3/work_packages") {
-    const allWorkPackages = load<WorkPackageLike[]>("work_packages.json");
+    const allWorkPackages = load<WorkPackageLike[]>("work_packages.json").map((wp) =>
+      withFixtureProjectTitle(engine, wp),
+    );
     const { offset, pageSize } = pageParams(url);
     const filtersParam = url.searchParams.get("filters");
     const projectId = filterValueFrom(filtersParam, "project");
@@ -217,7 +305,9 @@ function handleFixtureGet(url: URL, res: ServerResponse): void {
   const projWorkPackages = /^\/api\/v3\/projects\/(\d+)\/work_packages$/.exec(path);
   if (projWorkPackages) {
     const pid = projWorkPackages[1]!;
-    const allWorkPackages = load<WorkPackageLike[]>("work_packages.json");
+    const allWorkPackages = load<WorkPackageLike[]>("work_packages.json").map((wp) =>
+      withFixtureProjectTitle(engine, wp),
+    );
     const { offset, pageSize } = pageParams(url);
     const filtersParam = url.searchParams.get("filters");
     const versionId = filterValueFrom(filtersParam, "version");
@@ -272,12 +362,33 @@ function handleFixtureGet(url: URL, res: ServerResponse): void {
         project:
           projectId === null
             ? { href: null }
-            : { href: `/api/v3/projects/${projectId}`, title: `Project ${projectId}` },
+            : {
+                href: `/api/v3/projects/${projectId}`,
+                // Increment 40: the REAL project name (rename-aware), like
+                // scenario mode — `Project N` only for an id the fixture
+                // data doesn't know.
+                title: fixtureProjectName(engine, Number(projectId)) ?? `Project ${projectId}`,
+              },
       },
     };
     return void sendJson(res, 200, collection(path, [membership]));
   }
-  if (path === "/api/v3/projects") return void sendJson(res, 200, projects);
+  if (path === "/api/v3/projects") {
+    const hasPaging = url.searchParams.has("pageSize") || url.searchParams.has("offset");
+    const elements = fixtureProjectList().map((p) => fixtureProjectView(engine, p));
+    const renamed = elements.some((p, i) => p !== fixtureProjectList()[i]);
+    // Unpaged + unrenamed ⇒ the static file byte-for-byte (legacy contract).
+    if (!hasPaging && !renamed) return void sendJson(res, 200, projects);
+    return void sendJson(res, 200, projectsCollection(path, url, elements));
+  }
+  // Increment 40: GET /api/v3/projects/{id} — one project; unknown → 404.
+  const oneProjectFixture = ONE_PROJECT_PATH.exec(path);
+  if (oneProjectFixture) {
+    const id = Number(oneProjectFixture[1]!);
+    const p = fixtureProjectList().find((x) => x.id === id);
+    if (p === undefined) return void projectNotFound(res, id);
+    return void sendJson(res, 200, fixtureProjectView(engine, p));
+  }
   if (path === "/api/v3/statuses") return void sendJson(res, 200, statuses);
   // Re-read FRESH so simulated logged time appears on the next sync.
   if (path === "/api/v3/time_entries") {
@@ -448,7 +559,18 @@ function handleScenarioGet(view: ScenarioView, url: URL, res: ServerResponse): v
     return void sendJson(res, 200, userToHal(user));
   }
   if (path === "/api/v3/projects") {
-    return void sendJson(res, 200, collection(path, view.projects.map(projectToHal)));
+    // Increment 40: hidden projects (ScenarioProject.hidden) are not listed —
+    // their WPs stay visible, the project itself is not.
+    const visible = view.projects.filter((p) => p.hidden !== true).map(projectToHal);
+    return void sendJson(res, 200, projectsCollection(path, url, visible));
+  }
+  // Increment 40: GET /api/v3/projects/{id}; unknown OR hidden → 404.
+  const oneProject = ONE_PROJECT_PATH.exec(path);
+  if (oneProject) {
+    const id = Number(oneProject[1]!);
+    const project = view.projects.find((p) => p.id === id);
+    if (project === undefined || project.hidden === true) return void projectNotFound(res, id);
+    return void sendJson(res, 200, projectToHal(project));
   }
   if (path === "/api/v3/versions") {
     return void sendJson(
@@ -520,7 +642,7 @@ async function route(
 
     const view = engine.view();
     if (view !== null) handleScenarioGet(view, url, res);
-    else handleFixtureGet(url, res);
+    else handleFixtureGet(engine, url, res);
   } catch (err) {
     if (err instanceof MockEngineError) {
       sendJson(res, err.status, { error: err.message });
@@ -548,7 +670,7 @@ export interface MockOpInstance {
  * scenario state is never shared between instances.
  */
 export function createMockOpHandler(options: MockOpHandlerOptions = {}): MockOpInstance {
-  const engine = new ScenarioEngine(options.scenarios ?? loadScenarioRegistry);
+  const engine = new ScenarioEngine(options.scenarios ?? loadScenarioRegistry, fixtureProjectSeeds);
   const handler = (req: IncomingMessage, res: ServerResponse): void => {
     // route() catches everything (incl. engine errors) — safe to fire-and-forget.
     void route(engine, req, res);

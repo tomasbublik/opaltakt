@@ -17,7 +17,7 @@ vi.mock("../api-client", async (orig) => {
   return { ...actual, api: mockApi };
 });
 
-import { ReportsScreen } from "./ReportsScreen";
+import { ReportsScreen, estimateTooltipLabel } from "./ReportsScreen";
 
 beforeEach(() => {
   for (const k of Object.keys(mockApi)) delete mockApi[k];
@@ -179,5 +179,14 @@ describe("ReportsScreen", () => {
       "46% of developer time went to work added during the sprint",
     );
     expect(within(section).getByTestId("closure-scope-origin-donut")).toBeInTheDocument();
+  });
+});
+
+// Increment 40 (R1): the "Estimate vs. actual" chart tooltip label.
+describe("estimateTooltipLabel", () => {
+  it("appends the project identifier when known, plain #id otherwise", () => {
+    expect(estimateTooltipLabel(42, "northwind")).toBe("#42 · northwind");
+    expect(estimateTooltipLabel(42, null)).toBe("#42");
+    expect(estimateTooltipLabel(42, undefined)).toBe("#42");
   });
 });

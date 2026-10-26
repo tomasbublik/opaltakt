@@ -13,7 +13,7 @@ import { buildTestApp, type TestApp } from "../test-utils";
 function seedWp(repos: Repositories, p: Partial<NewWorkPackageCache> & { op_id: number }): Promise<void> {
   return repos.workPackages.upsertMany([
     {
-      connection_id: null, op_id: p.op_id, project_op_id: 100, subject: p.subject ?? `WP ${p.op_id}`,
+      connection_id: null, op_id: p.op_id, project_op_id: 100, project_name: null, subject: p.subject ?? `WP ${p.op_id}`,
       type_name: "Task", status_name: p.status_name ?? "New", status_is_closed: p.status_is_closed ?? false,
       assignee_op_id: p.assignee_op_id ?? null, assignee_name: p.assignee_name ?? null,
       estimated_hours: p.estimated_hours ?? null, remaining_hours: null, spent_hours: null, story_points: null,

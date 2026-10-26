@@ -411,6 +411,11 @@ export const BacklogQuery = z.object({
   /** Increment 23 (SPEC_23 §2) — the connection-safe replacement for
    * `version`, same `key` format and collision rationale as `assigneeKey`. */
   versionKey: z.string().optional(),
+  /** Increment 40 (INCREMENT_40_CONTRACTS §2.B3) — the connection-safe
+   * project filter: `${connection_id}:${project_op_id}` (or `none:<id>`), same
+   * format/rationale as `assigneeKey`. Takes precedence over the
+   * collision-unsafe legacy `projectId` when both are supplied. */
+  projectKey: z.string().optional(),
 });
 export type BacklogQuery = z.infer<typeof BacklogQuery>;
 
@@ -467,7 +472,10 @@ const FilterOptionEntry = z.object({
 });
 
 export const BacklogFilterOptionsResponse = z.object({
-  projects: z.array(z.string()),
+  /** Increment 40: keyed like assignees/versions (`key` =
+   * `${connection_id}:${project_op_id}`) — was `string[]` of names, which
+   * merged two same-named projects on different servers. */
+  projects: z.array(FilterOptionEntry),
   statuses: z.array(z.string()),
   assignees: z.array(FilterOptionEntry),
   versions: z.array(FilterOptionEntry),
@@ -478,8 +486,14 @@ export type BacklogFilterOptionsResponse = z.infer<typeof BacklogFilterOptionsRe
 
 /** A cached work package plus the effective planning estimate (override-aware). */
 export const BacklogItem = WorkPackageCache.extend({
-  /** Project display name (from the cached project list); null if unknown. */
+  /** Project display name, RESOLVED via `resolveProjectRef` (Increment 40 —
+   * frozen snapshot → cache `_links.project.title` → connection-scoped
+   * `project` row → baseline raw_json); null if unknown. Display-only. */
   project_name: z.string().nullable(),
+  /** Increment 40: the project's short `identifier` (the `/projects/<identifier>/`
+   * URL segment), from the connection-scoped `project` row (or the frozen
+   * snapshot); null when OP never told us (e.g. 404 on /projects/{id}). */
+  project_identifier: z.string().nullable(),
   /** planning_hours from estimate_override, else null. */
   override_hours: z.number().nullable(),
   /** Estimate-of-record used for planning (override ?? estimated_hours). */
@@ -1616,6 +1630,11 @@ export const TicketEstimateLine = z.object({
   overshoot_flag: z.boolean().nullable(),
   /** Increment 34 (§3): "sprint 2/3" badge data; null = single-sprint. */
   multi_sprint: MultiSprintBadge.nullable(),
+  /** Increment 40 (§3): the ticket's OP project via `resolveProjectRef` —
+   * frozen snapshot for a frozen sprint. Display-only; never affects numbers. */
+  project_op_id: OpId.nullable(),
+  project_name: z.string().nullable(),
+  project_identifier: z.string().nullable(),
 });
 export type TicketEstimateLine = z.infer<typeof TicketEstimateLine>;
 

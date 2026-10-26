@@ -6,6 +6,7 @@ import type {
   AdvanceDayRequest,
   AdvanceDayResult,
   AppHelperResult,
+  RenameProjectRequest,
 } from "../scenario-types";
 import type { ScenarioEngine } from "./engine";
 import { MockEngineError } from "./engine";
@@ -23,6 +24,7 @@ import { MockEngineError } from "./engine";
  *  POST /__mock/set-latency-ms     → { latency_ms }  (body: { ms: number })
  *  GET  /__mock/state              → MockStateSummary
  *  POST /__mock/reset              → { mode: "fixtures" }
+ *  POST /__mock/rename-project/:id → RenameProjectResult (body: { name?, identifier? })
  *  GET  /__mock/ui (+ /__mock/ui/*) → static control panel from fixtures/mock-ui/
  */
 
@@ -214,6 +216,23 @@ export async function handleAdmin(
       const ms = typeof body.ms === "number" ? body.ms : Number(body.ms);
       const applied = engine.setWorkPackagesLatency(ms);
       sendJson(res, 200, { latency_ms: applied });
+    }
+    return;
+  }
+  // Increment 40: rename a project (name and/or identifier; op_id unchanged)
+  // so the app's NEXT sync sees the new display values — the "renamed in OP
+  // after the sprint was frozen" case. Operator tooling only, like every
+  // /__mock route; op-client never targets it.
+  const renameMatch = /^\/__mock\/rename-project\/([^/]+)$/.exec(path);
+  if (renameMatch !== null) {
+    if (requireMethod("POST")) {
+      const raw = decodeURIComponent(renameMatch[1]!);
+      const id = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+      const body = await readJsonBody(req);
+      const patch: RenameProjectRequest = {};
+      if (body.name !== undefined) patch.name = body.name as string;
+      if (body.identifier !== undefined) patch.identifier = body.identifier as string;
+      sendJson(res, 200, engine.renameProject(id, patch));
     }
     return;
   }

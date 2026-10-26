@@ -15,6 +15,7 @@ function seedWp(op_id: number, overrides: Partial<NewWorkPackageCache> = {}): Ne
     connection_id: null,
     op_id,
     project_op_id: 100,
+    project_name: null,
     subject: `WP ${op_id}`,
     type_name: "Task",
     status_name: "In progress",

@@ -31,6 +31,9 @@ function makeStubClient(requestImpl: OpClient["request"]): OpClient {
     getProjects() {
       return this.request({ path: "/api/v3/projects" });
     },
+    getProject(id) {
+      return this.request({ path: `/api/v3/projects/${id}` });
+    },
     getWorkPackages(query) {
       return this.request({ path: "/api/v3/work_packages", query: query as never });
     },

@@ -2,6 +2,8 @@ import type {
   AdvanceDayRequest,
   AdvanceDayResult,
   MockStateSummary,
+  RenameProjectRequest,
+  RenameProjectResult,
   ScenarioSummary,
   WorkPackageStateSummary,
 } from "@osp/fixtures/scenario-types";
@@ -84,6 +86,8 @@ export interface MockAdmin {
   injectUrgent(): Promise<{ work_package: WorkPackageStateSummary }>;
   state(): Promise<MockStateSummary>;
   reset(): Promise<{ mode: "fixtures" }>;
+  /** Increment 40: rename a project (name and/or identifier; op_id unchanged). */
+  renameProject(id: number, patch: RenameProjectRequest): Promise<RenameProjectResult>;
   /** Throws a clear "BLOCKED ON AGENT M2" error when `name` isn't registered. */
   requireScenario(name: string): Promise<ScenarioSummary>;
 }
@@ -112,6 +116,8 @@ export function mockAdmin(baseUrl: string): MockAdmin {
       adminFetch(baseUrl, "GET", "/__mock/state") as Promise<MockStateSummary>,
     reset: () =>
       adminFetch(baseUrl, "POST", "/__mock/reset") as Promise<{ mode: "fixtures" }>,
+    renameProject: (id, patch) =>
+      adminFetch(baseUrl, "POST", `/__mock/rename-project/${id}`, patch) as Promise<RenameProjectResult>,
     requireScenario: async (name) => {
       const list = await admin.scenarios();
       const found = list.find((s) => s.name === name);
